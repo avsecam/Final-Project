@@ -1,10 +1,12 @@
 # HACK N SLASH
 ## Play until you DIE
 
-# BUTCH N JED
+# BUTCH
 WASD movement
 Click to attack
+- hitbox
 
+# JED
 2 Enemy Types
 - Melee
   - suicide bomber
