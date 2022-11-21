@@ -18,11 +18,13 @@ Click to attack
 Start Screen
 Pause Screen
 High score screen on death
+- type high score name
 - show 10 high scores
 - also accessible from Start Screen
 Ingame UI
 - HP
 - Score
+- the floor
 High score txt file
 - 10 high scores
 
