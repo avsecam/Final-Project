@@ -1,8 +1,13 @@
 #include <raylib.h>
 #include <raymath.h>
 
+#include <iostream>
+#include <string>
+#include <vector>
+
 #include "components.hpp"
 #include "entt.hpp"
+#include "UIHandler.h"
 
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
