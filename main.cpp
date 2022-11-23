@@ -60,6 +60,7 @@ int main() {
     }
     playerMoveDirection = Vector2Normalize(playerMoveDirection);
 
+    // Enemy Spawning
     if (IsKeyPressed(KEY_SPACE)) {
       entt::entity e = registry.create();
 
@@ -87,15 +88,28 @@ int main() {
     // Physics Process
     accumulator += deltaTime;
     while (accumulator >= TIMESTEP) {
+      CharacterComponent& playerCc =
+        registry.get<CharacterComponent>(playerEntity);
+
+      // Move player character
+      playerCc.position = Vector2Add(
+        playerCc.position,
+        Vector2Scale(playerMoveDirection, PLAYER_MOVESPEED * TIMESTEP)
+      );
+
       auto characters = registry.view<CharacterComponent>();
       for (auto e : characters) {
         CharacterComponent& cc = registry.get<CharacterComponent>(e);
 
+        TimerComponent* tc = registry.try_get<TimerComponent>(e);
+        StraightMovementComponent* smc =
+          registry.try_get<StraightMovementComponent>(e);
+        MobComponent* mc = registry.try_get<MobComponent>(e);
+
         // Check if range enemy should shoot
-        if (registry.try_get<TimerComponent>(e)) {
-          TimerComponent& tc = registry.get<TimerComponent>(e);
-          tc.timeLeft -= TIMESTEP;
-          if (tc.timeLeft <= 0.0f) {
+        if (tc) {
+          tc->timeLeft -= TIMESTEP;
+          if (tc->timeLeft <= 0.0f) {
             // Create and shoot bullet
             entt::entity e = registry.create();
             CharacterComponent& bulletCc =
@@ -108,45 +122,44 @@ int main() {
             bulletCc.hitboxRadius = 5.0f;
             bulletCc.position = cc.position;
             bulletCc.velocity = {BULLET_SPEED, BULLET_SPEED};
-
-            CharacterComponent& playerCc =
-              registry.get<CharacterComponent>(playerEntity);
             smc.direction =
               Vector2Normalize(Vector2Subtract(playerCc.position, cc.position));
 
-            tc.timeLeft = tc.maxTime;
+            tc->timeLeft = tc->maxTime;
           }
         }
 
-        if (!registry.try_get<PlayerComponent>(e)) {
-          StraightMovementComponent* smc =
-            registry.try_get<StraightMovementComponent>(e);
-          CharacterComponent& playerCc =
-            registry.get<CharacterComponent>(playerEntity);
-
-          if (smc) {
-            moveDirectional(cc, smc->direction, TIMESTEP);
-            // Destroy SMC if it's not visible anymore
-            if (cc.position.x < 0.0f
-						|| cc.position.y < 0.0f
-						|| cc.position.x > WINDOW_WIDTH
-						|| cc.position.y > WINDOW_HEIGHT ) {
-              registry.destroy(e);
-            }
-          } else {
-            moveTowards(cc, playerCc.position, TIMESTEP);
+        if (smc) {
+          moveDirectional(cc, smc->direction, TIMESTEP);
+          // Destroy SMC if it's not visible anymore
+          if (!isWithinRectangle(
+                cc.position, {0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT}
+              )) {
+            registry.destroy(e);
           }
+        }
+
+        // Move mobs
+        if (mc) {
+          switch (mc->type) {
+            case MELEE:
+              moveTowards(cc, playerCc.position, TIMESTEP);
+              break;
+            case RANGE:
+              moveTowardsWithLimit(
+                cc, playerCc.position, ENEMY_RANGE_SAFE_DISTANCE, TIMESTEP
+              );
+              break;
+            default:
+              break;
+          }
+
+          // Prevent enemies from going offscreen
+
           // Destroy character if it collides with player
           if (checkCharacterCollision(playerCc, cc)) {
             registry.destroy(e);
           }
-        } else {
-          // Move player character
-          CharacterComponent& playerCc = registry.get<CharacterComponent>(e);
-          playerCc.position = Vector2Add(
-            playerCc.position,
-            Vector2Scale(playerMoveDirection, PLAYER_MOVESPEED * TIMESTEP)
-          );
         }
       }
       accumulator -= TIMESTEP;
