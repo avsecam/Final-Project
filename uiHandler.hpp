@@ -13,8 +13,30 @@ const int BUTTON_WIDTH_1(260);
 const int BUTTON_HEIGHT_1(60);
 const int FONT_SIZE_1(20);
 const int FONT_SIZE_2(30);
+const int FONT_SIZE_3(60);
 
 int currentMenu = 0;
+
+int num_of_scores = 0;
+int score = 0;
+int max_score = 0;
+int min_score = 0;
+
+// --------------------------------------------------
+//                 MISC COMPONENTS
+// --------------------------------------------------
+
+struct ScoreCard {
+  std::string name;
+  int score;
+};
+
+std::vector<ScoreCard*> score_cards;
+
+// --------------------------------------------------
+//                  UI COMPONENTS
+// --------------------------------------------------
+
 
 // Base UI Component Struct that all other UI Components will be based off of
 struct UIComponent {
@@ -177,6 +199,9 @@ struct UILibrary {
 void startGame() { std::cout << "I AM STARTING GAME" << std::endl; };
 void goToMainMenu() { currentMenu = 0; };
 void goToScoreScreen() { currentMenu = 1; };
+void goToPauseScreen() { currentMenu = 3; };
+void goToGameOverScreen() { currentMenu = 4; };
+void saveScore() { std::cout << "SAVING SCORE" << std::endl; };
 
 struct Menu {
   UILibrary uiLibrary;
@@ -219,18 +244,19 @@ struct ScoreScreen : public Menu {
   Label highScoreLabel;
   Label* scoreLabel; 
   Label* nameLabel; 
-  Label* separator;
+  ScoreCard* scoreCard;
   Button returnToMainMenuButton;
   std::fstream highScoreFile;
+  int currentScore;
 
   void createUI(float windowWidth, float windowHeight) override {
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
 
     highScoreLabel.text = "HIGH SCORES";
     highScoreLabel.bounds = {
-      windowWidth / 2, FONT_SIZE_2 * 2, 
-      0, FONT_SIZE_2};
-    highScoreLabel.fontSize = FONT_SIZE_2;
+      windowWidth / 2, FONT_SIZE_3 * 2, 
+      0, FONT_SIZE_3};
+    highScoreLabel.fontSize = FONT_SIZE_3;
     highScoreLabel.setCenterAlign();
     highScoreLabel.textColor = BLACK;
 
@@ -246,13 +272,25 @@ struct ScoreScreen : public Menu {
       std::string score = line.substr(0, end - 0);
       std::string name = line.substr(end, line.length());
 
+      currentScore = stoi(score);
+
+      if(scoreNumber == 1){
+        max_score = currentScore;
+      }
+
+      scoreCard = new ScoreCard;
+      scoreCard->name = name;
+      scoreCard->score = currentScore;
+
+      score_cards.push_back(scoreCard);
+
       scoreLabel = new Label;
       scoreLabel->text = score;
       scoreLabel->bounds = {
-        windowWidth / 2 - 10, 
-        (FONT_SIZE_2 * 3) + (FONT_SIZE_1 * scoreNumber),
-        0, FONT_SIZE_1};
-      scoreLabel->fontSize = FONT_SIZE_1;
+        windowWidth / 2 - 20, 
+        (FONT_SIZE_3 * 3) + (FONT_SIZE_2 * scoreNumber),
+        0, FONT_SIZE_2};
+      scoreLabel->fontSize = FONT_SIZE_2;
       scoreLabel->setRightAlign();
       scoreLabel->textColor = BLACK;
 
@@ -260,9 +298,9 @@ struct ScoreScreen : public Menu {
       nameLabel->text = name;
       nameLabel->bounds = {
         windowWidth / 2 + 10, 
-        (FONT_SIZE_2 * 3) + (FONT_SIZE_1 * scoreNumber),
-        0, FONT_SIZE_1};
-      nameLabel->fontSize = FONT_SIZE_1;
+        (FONT_SIZE_3 * 3) + (FONT_SIZE_2 * scoreNumber),
+        0, FONT_SIZE_2};
+      nameLabel->fontSize = FONT_SIZE_2;
       nameLabel->setLeftAlign();
       nameLabel->textColor = BLACK;
 
@@ -270,8 +308,11 @@ struct ScoreScreen : public Menu {
       uiLibrary.rootContainer.AddChild(scoreLabel);
       uiLibrary.rootContainer.AddChild(nameLabel);
 
+      num_of_scores += 1;
       scoreNumber += 1;
     }
+    
+    min_score = currentScore;
     highScoreFile.close();
 
     returnToMainMenuButton.text = "MAIN MENU";
@@ -285,17 +326,105 @@ struct ScoreScreen : public Menu {
 };
 
 
+struct PauseScreen : Menu {
+  Label pauseScreenLabel;
+  Button returnToMainMenuButton, returnToGameButton;
+  void createUI(float windowWidth, float windowHeight) override {
+    uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
+
+    pauseScreenLabel.text = "PAUSE SCREEN";
+    pauseScreenLabel.bounds = {
+      windowWidth / 2, FONT_SIZE_3 * 2, 
+      0, FONT_SIZE_3};
+    pauseScreenLabel.fontSize = FONT_SIZE_3;
+    pauseScreenLabel.setCenterAlign();
+    pauseScreenLabel.textColor = BLACK;
+
+    uiLibrary.rootContainer.AddChild(&pauseScreenLabel);
+
+    returnToMainMenuButton.text = "MAIN MENU";
+    returnToMainMenuButton.bounds = {
+      ( windowWidth / 2 - BUTTON_WIDTH_1 / 2 ) - (BUTTON_WIDTH_1 * float(0.75)),
+      windowHeight / 2 - BUTTON_HEIGHT_1 / 2, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
+    returnToMainMenuButton.buttonAction = goToMainMenu;
+
+    uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
+
+    returnToGameButton.text = "BACK TO GAME";
+    returnToGameButton.bounds = {
+      ( windowWidth / 2 - BUTTON_WIDTH_1 / 2 ) + (BUTTON_WIDTH_1 * float(0.75)),
+      windowHeight / 2 - BUTTON_HEIGHT_1 / 2, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
+    returnToGameButton.buttonAction = startGame;
+
+    uiLibrary.rootContainer.AddChild(&returnToGameButton);
+  }
+};
+
+
+struct GameOverScreen : Menu {
+  Label gameOverScreenLabel, scoreLabel;
+  Button returnToMainMenuButton, saveScoreButton;
+  void createUI(float windowWidth, float windowHeight) override {
+    uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
+
+    gameOverScreenLabel.text = "GAME OVER";
+    gameOverScreenLabel.bounds = {
+      windowWidth / 2, FONT_SIZE_3 * 2, 
+      0, FONT_SIZE_3};
+    gameOverScreenLabel.fontSize = FONT_SIZE_3;
+    gameOverScreenLabel.setCenterAlign();
+    gameOverScreenLabel.textColor = BLACK;
+
+    uiLibrary.rootContainer.AddChild(&gameOverScreenLabel);
+
+    scoreLabel.text = "SCORE: " + std::to_string(score);
+    scoreLabel.bounds = {
+      windowWidth / 2, windowHeight / 2 - FONT_SIZE_3 * 2, 
+      0, FONT_SIZE_2};
+    scoreLabel.fontSize = FONT_SIZE_2;
+    scoreLabel.setCenterAlign();
+    scoreLabel.textColor = BLACK;
+
+    uiLibrary.rootContainer.AddChild(&scoreLabel);
+
+    saveScoreButton.text = "SAVE SCORE";
+    saveScoreButton.bounds = {
+      windowWidth / 2 - BUTTON_WIDTH_1 / 2,
+      windowHeight / 2 - BUTTON_HEIGHT_1 / 2, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
+    saveScoreButton.buttonAction = saveScore;
+
+    uiLibrary.rootContainer.AddChild(&saveScoreButton);
+
+    returnToMainMenuButton.text = "MAIN MENU";
+    returnToMainMenuButton.bounds = {
+      windowWidth / 2 - BUTTON_WIDTH_1 / 2,
+      windowHeight / 2 + BUTTON_HEIGHT_1, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
+    returnToMainMenuButton.buttonAction = goToMainMenu;
+
+    uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
+  }
+};
+
+
 struct MenuHandler {
   std::vector<Menu*> menuList;
   MainMenu mainMenu;
   ScoreScreen scoreScreen;
+  PauseScreen pauseScreen;
+  GameOverScreen gameOverScreen;
 
   void initialize(float windowWidth, float windowHeight) {
     mainMenu.createUI(windowWidth, windowHeight);
     scoreScreen.createUI(windowWidth, windowHeight);
+    pauseScreen.createUI(windowWidth, windowHeight);
+    gameOverScreen.createUI(windowWidth, windowHeight);
+
+    currentMenu = 3;
 
     menuList.push_back(&mainMenu);
     menuList.push_back(&scoreScreen);
+    menuList.push_back(&pauseScreen);
+    menuList.push_back(&gameOverScreen);
   }
 
   void Update() { menuList[currentMenu]->Update(); }
