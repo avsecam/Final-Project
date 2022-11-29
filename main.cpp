@@ -7,7 +7,7 @@
 
 #include "components.hpp"
 #include "entt.hpp"
-#include "UIHandler.h"
+#include "UIHandler.hpp"
 
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
