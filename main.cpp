@@ -5,8 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "UIHandler.hpp"
+#include "uiHandler.hpp"
 #include "components.hpp"
+#include "unigrid.hpp"
+
 #include "entt.hpp"
 
 const int WINDOW_WIDTH(1280);
@@ -15,6 +17,8 @@ const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
 
 const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
+
+const float UNIGRID_CELL_SIZE(60.0f);
 
 const float WAIT_TIME_BEFORE_FIRST_SPAWN(1.0f);
 const int BASE_ENEMY_COUNT(5);
@@ -67,6 +71,9 @@ int main() {
     cc.position = {WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f};
     pc.hp = 10;
   }
+
+
+	UniformGrid unigrid = UniformGrid(WINDOW_HEIGHT, WINDOW_WIDTH, UNIGRID_CELL_SIZE);
 
   bool gameHasJustStarted(true);
 	float startWaitTime(0.0f);
@@ -121,6 +128,7 @@ int main() {
 		}
 
     // Physics Process
+		unigrid.clearCells();
     accumulator += deltaTime;
     while (accumulator >= TIMESTEP) {
       CharacterComponent& playerCc =
@@ -189,8 +197,6 @@ int main() {
               break;
           }
 
-          // Prevent enemies from going offscreen
-
           // Destroy character if it collides with player
           if (checkCharacterCollision(playerCc, cc)) {
             ScoreOnKillComponent* sokc =
@@ -202,13 +208,20 @@ int main() {
             registry.destroy(e);
           }
         }
-      }
+      
+				refreshUnigridPositions(&cc, UNIGRID_CELL_SIZE);
+				unigrid.refreshPosition(&cc);
+			}
       accumulator -= TIMESTEP;
     }
 
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
+		// Uniform Grid
+		unigrid.draw();
+
+		// Entities
     auto characters = registry.view<CharacterComponent>();
     for (auto e : characters) {
       CharacterComponent& cc = registry.get<CharacterComponent>(e);

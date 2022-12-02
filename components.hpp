@@ -10,6 +10,7 @@ struct CharacterComponent {
   Vector2 velocity;
 
   float hitboxRadius;
+	std::vector<Vector2> unigridPositions;
 };
 
 const float SPAWN_OFFSET(20.0f);
