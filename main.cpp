@@ -5,11 +5,10 @@
 #include <string>
 #include <vector>
 
-#include "uiHandler.hpp"
 #include "components.hpp"
-#include "unigrid.hpp"
-
 #include "entt.hpp"
+#include "uiHandler.hpp"
+#include "unigrid.hpp"
 
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
@@ -22,7 +21,8 @@ const float UNIGRID_CELL_SIZE(60.0f);
 
 const float WAIT_TIME_BEFORE_FIRST_SPAWN(1.0f);
 const int BASE_ENEMY_COUNT(5);
-const int ADDITIONAL_ENEMY_COUNT(5);  // How many more enemies to add after score threshold
+const int ADDITIONAL_ENEMY_COUNT(5
+);  // How many more enemies to add after score threshold
 
 const float PLAYER_MOVESPEED(180.0f);
 
@@ -47,7 +47,10 @@ static void spawnEnemies(entt::registry& registry, const int amount) {
         randf(ENEMY_RANGE_VELOCITY_MIN, ENEMY_RANGE_VELOCITY_MAX),
         randf(ENEMY_RANGE_VELOCITY_MIN, ENEMY_RANGE_VELOCITY_MAX)};
       TimerComponent& tc = registry.emplace<TimerComponent>(e);
-      tc.maxTime = randf(ENEMY_SHOOT_INTERVAL_BASE - ENEMY_SHOOT_INTERVAL_RAND, ENEMY_SHOOT_INTERVAL_BASE + ENEMY_SHOOT_INTERVAL_RAND);
+      tc.maxTime = randf(
+        ENEMY_SHOOT_INTERVAL_BASE - ENEMY_SHOOT_INTERVAL_RAND,
+        ENEMY_SHOOT_INTERVAL_BASE + ENEMY_SHOOT_INTERVAL_RAND
+      );
       tc.timeLeft = tc.maxTime;
     }
   }
@@ -72,11 +75,11 @@ int main() {
     pc.hp = 10;
   }
 
-
-	UniformGrid unigrid = UniformGrid(WINDOW_HEIGHT, WINDOW_WIDTH, UNIGRID_CELL_SIZE);
+  UniformGrid unigrid =
+    UniformGrid(WINDOW_HEIGHT, WINDOW_WIDTH, UNIGRID_CELL_SIZE);
 
   bool gameHasJustStarted(true);
-	float startWaitTime(0.0f);
+  float startWaitTime(0.0f);
 
   float accumulator(0.0f);
   float deltaTime(0.0f);
@@ -86,12 +89,12 @@ int main() {
     deltaTime = GetFrameTime();
 
     if (gameHasJustStarted) {
-			// Wait a bit before spawning enemies
-			if (startWaitTime < WAIT_TIME_BEFORE_FIRST_SPAWN) {
-				startWaitTime += deltaTime;
-			} else {
-				gameHasJustStarted = false;
-			}
+      // Wait a bit before spawning enemies
+      if (startWaitTime < WAIT_TIME_BEFORE_FIRST_SPAWN) {
+        startWaitTime += deltaTime;
+      } else {
+        gameHasJustStarted = false;
+      }
     }
 
     Vector2 playerMoveDirection = Vector2Zero();
@@ -113,22 +116,22 @@ int main() {
     // Depends on score
     // Every 500 points, amount should increase by 10
     // Spawn when enemies are a quarter of enemyCount
-		if (!gameHasJustStarted) {
-			auto enemies = registry.view<MobComponent>();
-			int currentEnemyCount = enemies.size();
-			for (auto e : enemies) {
-				MobComponent& mc = registry.get<MobComponent>(e);
-				if (mc.type == BULLET) {
-					currentEnemyCount--;
-				}
-			}
-			if (currentEnemyCount <= floor(requiredEnemyCount / 4.0f)) {
-				spawnEnemies(registry, requiredEnemyCount + ADDITIONAL_ENEMY_COUNT);
-			}
-		}
+    if (!gameHasJustStarted) {
+      auto enemies = registry.view<MobComponent>();
+      int currentEnemyCount = enemies.size();
+      for (auto e : enemies) {
+        MobComponent& mc = registry.get<MobComponent>(e);
+        if (mc.type == BULLET) {
+          currentEnemyCount--;
+        }
+      }
+      if (currentEnemyCount <= floor(requiredEnemyCount / 4.0f)) {
+        spawnEnemies(registry, requiredEnemyCount + ADDITIONAL_ENEMY_COUNT);
+      }
+    }
 
     // Physics Process
-		unigrid.clearCells();
+    unigrid.clearCells();
     accumulator += deltaTime;
     while (accumulator >= TIMESTEP) {
       CharacterComponent& playerCc =
@@ -197,8 +200,19 @@ int main() {
               break;
           }
 
+          // Check collision with other mobs
+					if (mc->type != BULLET) {
+						for (auto otherMob : characters) {
+							CharacterComponent& otherMobCc =
+								registry.get<CharacterComponent>(otherMob);
+							if (charactersAreColliding(cc, otherMobCc)) {
+								separateCharacters(cc, otherMobCc);
+							}
+						}
+					}
+
           // Destroy character if it collides with player
-          if (checkCharacterCollision(playerCc, cc)) {
+          if (charactersAreColliding(playerCc, cc)) {
             ScoreOnKillComponent* sokc =
               registry.try_get<ScoreOnKillComponent>(e);
             if (sokc) {
@@ -208,20 +222,20 @@ int main() {
             registry.destroy(e);
           }
         }
-      
-				refreshUnigridPositions(&cc, UNIGRID_CELL_SIZE);
-				unigrid.refreshPosition(&cc);
-			}
+
+        refreshUnigridPositions(&cc, UNIGRID_CELL_SIZE);
+        unigrid.refreshPosition(&cc);
+      }
       accumulator -= TIMESTEP;
     }
 
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
-		// Uniform Grid
-		unigrid.draw();
+    // Uniform Grid
+    unigrid.draw();
 
-		// Entities
+    // Entities
     auto characters = registry.view<CharacterComponent>();
     for (auto e : characters) {
       CharacterComponent& cc = registry.get<CharacterComponent>(e);
