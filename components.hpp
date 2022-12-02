@@ -18,8 +18,10 @@ const float ENEMY_MELEE_VELOCITY_MAX(100.0f);
 const float ENEMY_RANGE_VELOCITY_MIN(15.0f);
 const float ENEMY_RANGE_VELOCITY_MAX(30.0f);
 const float ENEMY_RANGE_SAFE_DISTANCE(300.0f);
-const float ENEMY_SHOOT_INTERVAL(3.0f);
+const float ENEMY_SHOOT_INTERVAL_BASE(5.0f);
+const float ENEMY_SHOOT_INTERVAL_RAND(4.0f);
 const float BULLET_SPEED(300.0f);
+const int SCORE_PER_KILL(10);
 enum MobType { MELEE, RANGE, BULLET };
 struct MobComponent {
   MobType type;
@@ -27,12 +29,16 @@ struct MobComponent {
 };
 
 struct TimerComponent {
-  float maxTime = ENEMY_SHOOT_INTERVAL;
+  float maxTime = randf(ENEMY_SHOOT_INTERVAL_BASE - ENEMY_SHOOT_INTERVAL_RAND, ENEMY_SHOOT_INTERVAL_BASE + ENEMY_SHOOT_INTERVAL_RAND);
   float timeLeft;
 };
 
 struct StraightMovementComponent {
   Vector2 direction;
+};
+
+struct ScoreOnKillComponent { // Give score when entity dies
+	int score = SCORE_PER_KILL;
 };
 
 struct PlayerComponent {
@@ -54,7 +60,7 @@ static void moveTowards(
 }
 
 // Move towards a point but stay at some distance
-static void moveTowardsWithLimit(
+static void moveTowardsWithSlowOnLimit(
   CharacterComponent& c, const Vector2 targetPosition, const float distance, const float timestep
 ) {
 	float distanceToTargetPosition = Vector2Distance(targetPosition, c.position);
@@ -69,7 +75,7 @@ static void moveTowardsWithLimit(
 			Vector2Add(c.position, Vector2Scale(directionScaledToVelocity, timestep));
 	} else {
 		c.position =
-			Vector2Subtract(c.position, Vector2Scale(directionScaledToVelocity, timestep));
+			Vector2Add(c.position, Vector2Scale(directionScaledToVelocity, timestep / 2));
 	}
 }
 
@@ -107,6 +113,15 @@ static Vector2 clampToRectangle(const Vector2 position, const Rectangle limits) 
 
 static void drawCharacter(CharacterComponent& c) {
   DrawCircleV(c.position, c.hitboxRadius, RED);
+}
+
+static bool checkCharacterCollision(
+  const CharacterComponent& a, const CharacterComponent& b
+) {
+  float sumOfRadii(pow(a.hitboxRadius + b.hitboxRadius, 2));
+  float distanceBetweenCenters(Vector2DistanceSqr(a.position, b.position));
+
+  return (sumOfRadii >= distanceBetweenCenters);
 }
 
 #endif
