@@ -201,15 +201,24 @@ int main() {
           }
 
           // Check collision with other mobs
-					if (mc->type != BULLET) {
-						for (auto otherMob : characters) {
-							CharacterComponent& otherMobCc =
-								registry.get<CharacterComponent>(otherMob);
-							if (charactersAreColliding(cc, otherMobCc)) {
-								separateCharacters(cc, otherMobCc);
-							}
-						}
-					}
+          if (mc->type != BULLET) {
+            for (auto otherMob : characters) {
+							PlayerComponent* otherMobPc = registry.try_get<PlayerComponent>(otherMob);
+							MobComponent* otherMobMc = registry.try_get<MobComponent>(otherMob);
+							// Don't collide with player and bullets
+              if (
+								otherMobPc
+								|| otherMobMc->type == BULLET
+							) {
+                continue;
+              }
+              CharacterComponent& otherMobCc =
+                registry.get<CharacterComponent>(otherMob);
+              if (charactersAreColliding(cc, otherMobCc)) {
+                separateCharacters(cc, otherMobCc);
+              }
+            }
+          }
 
           // Destroy character if it collides with player
           if (charactersAreColliding(playerCc, cc)) {
