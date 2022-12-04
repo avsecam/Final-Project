@@ -12,6 +12,11 @@ struct CharacterComponent {
   float hitboxRadius;
 };
 
+struct meleeWeaponComponent {
+  Vector2 position;
+  float hitboxRadius;
+};
+
 const float SPAWN_OFFSET(20.0f);
 const float ENEMY_MELEE_VELOCITY_MIN(30.0f);
 const float ENEMY_MELEE_VELOCITY_MAX(100.0f);
@@ -107,6 +112,10 @@ static Vector2 clampToRectangle(const Vector2 position, const Rectangle limits) 
 
 static void drawCharacter(CharacterComponent& c) {
   DrawCircleV(c.position, c.hitboxRadius, RED);
+}
+
+static void drawWeapon(meleeWeaponComponent& w) {
+  DrawCircleV(w.position, w.hitboxRadius, BLUE);
 }
 
 #endif

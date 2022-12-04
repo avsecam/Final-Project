@@ -11,13 +11,14 @@
 
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
+const int SWORD_REACH(80);
+const int SWORD_SWING_INTERVAL(1.0f);
 const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
 
 const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
 
 const float PLAYER_MOVESPEED(180.0f);
-
 static bool checkCharacterCollision(
   const CharacterComponent& a, const CharacterComponent& b
 ) {
@@ -27,11 +28,22 @@ static bool checkCharacterCollision(
   return (sumOfRadii >= distanceBetweenCenters);
 }
 
+static bool checkWeaponCollision(
+  const meleeWeaponComponent& a, const CharacterComponent& b
+) {
+  float sumOfRadii(pow(a.hitboxRadius + b.hitboxRadius, 2));
+  float distanceBetweenCenters(Vector2DistanceSqr(a.position, b.position));
+
+  return (sumOfRadii >= distanceBetweenCenters);
+}
+
+
 int main() {
   srand(GetTime());
-
+  bool canSwing = false;
   entt::registry registry;
-
+  
+  
   // Create player
   entt::entity playerEntity;
   if (registry.view<PlayerComponent>().size() <= 0) {
@@ -43,12 +55,26 @@ int main() {
     pc.hp = 10;
   }
 
+  entt::entity weaponEntity;
+  weaponEntity = registry.create();
+  meleeWeaponComponent& wc = registry.emplace<meleeWeaponComponent>(weaponEntity);
+  TimerComponent& weaponTc = registry.emplace<TimerComponent>(weaponEntity);
+  wc.hitboxRadius = 50.0f;
+  weaponTc.maxTime = SWORD_SWING_INTERVAL;
+  weaponTc.timeLeft = weaponTc.maxTime;
+  
+  
   float accumulator(0.0f);
   float deltaTime(0.0f);
+  float lastSwordSwingTime(0.0f);
+  float aimAngle;
+  Vector2 attackHitboxPosition;
+
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(TARGET_FPS);
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
+    Texture playerTexture = LoadTexture("Assets/rsword.png");
 
     Vector2 playerMoveDirection = Vector2Zero();
     if (IsKeyDown(KEY_W)) {
@@ -90,6 +116,32 @@ int main() {
       }
     }
 
+    // Attack
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      if (canSwing) {
+        std::cout << "SUCCESSFUL SWING! " << weaponTc.timeLeft << std::endl;
+        auto characters = registry.view<CharacterComponent>();
+        for (auto e: characters) {
+          CharacterComponent& cc = registry.get<CharacterComponent>(e);
+
+          MobComponent* mc = registry.try_get<MobComponent>(e);
+          if (mc) {
+            if (checkWeaponCollision(wc, cc)) {
+              registry.destroy(e);
+            }
+          }
+          canSwing = false;
+          weaponTc.timeLeft = weaponTc.maxTime;
+        }
+      }
+      else{
+        std::cout<<"CANNOT SWING YET, TIME LEFT: " << weaponTc.timeLeft << std::endl; 
+      }
+       
+    }
+  
+
+
     // Physics Process
     accumulator += deltaTime;
     while (accumulator >= TIMESTEP) {
@@ -101,6 +153,17 @@ int main() {
         playerCc.position,
         Vector2Scale(playerMoveDirection, PLAYER_MOVESPEED * TIMESTEP)
       );
+
+      //Weapon Hitbox Tracking
+      wc.position = Vector2Add(playerCc.position, Vector2Scale(Vector2Normalize(Vector2Subtract(GetMousePosition(), playerCc.position)), SWORD_REACH));
+      if (weaponTc.timeLeft <= 0.0f){
+        canSwing = true;
+      }
+      else{
+        weaponTc.timeLeft -= TIMESTEP;
+      }
+      
+      //std::cout << wc.position.x << " | " << wc.position.y << std::endl;
 
       auto characters = registry.view<CharacterComponent>();
       for (auto e : characters) {
@@ -196,9 +259,20 @@ int main() {
         DrawCircleV(cc.position, cc.hitboxRadius, color);
       }
       if (pc) {
+        Vector2 texOffset;
+        texOffset.x = 100;
+        texOffset.y = 100;
         DrawCircleV(cc.position, cc.hitboxRadius, BLUE);
+        DrawTextureEx(playerTexture, Vector2Subtract(cc.position, texOffset), 1.0, 2.0, WHITE);
       }
+  
     }
+    auto weap = registry.view<meleeWeaponComponent>();
+    for (auto e : weap) {
+      meleeWeaponComponent* wc = registry.try_get<meleeWeaponComponent>(e);
+      //DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
+    }
+    
 
     EndDrawing();
   }
