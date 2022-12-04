@@ -7,7 +7,8 @@
 
 #include "components.hpp"
 #include "entt.hpp"
-#include "UIHandler.hpp"
+#include "uiHandler.hpp"
+#include "unigrid.hpp"
 
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
@@ -18,14 +19,48 @@ const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
 const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
 
+const float UNIGRID_CELL_SIZE(60.0f);
+
+const float WAIT_TIME_BEFORE_FIRST_SPAWN(1.0f);
+const int BASE_ENEMY_COUNT(5);
+const int ADDITIONAL_ENEMY_COUNT(5
+);  // How many more enemies to add after score threshold
+
 const float PLAYER_MOVESPEED(180.0f);
 static bool checkCharacterCollision(
   const CharacterComponent& a, const CharacterComponent& b
 ) {
   float sumOfRadii(pow(a.hitboxRadius + b.hitboxRadius, 2));
   float distanceBetweenCenters(Vector2DistanceSqr(a.position, b.position));
+}
+static void spawnEnemies(entt::registry& registry, const int amount) {
+  for (int i = 0; i < amount; i++) {
+    entt::entity e = registry.create();
 
-  return (sumOfRadii >= distanceBetweenCenters);
+    CharacterComponent& cc = registry.emplace<CharacterComponent>(e);
+    MobComponent& mc = registry.emplace<MobComponent>(e);
+    ScoreOnKillComponent& sokc = registry.emplace<ScoreOnKillComponent>(e);
+    mc.type = (rng(50)) ? MELEE : RANGE;
+    mc.spawnPosition =
+      chooseSpawnPosition(WINDOW_WIDTH, WINDOW_HEIGHT, SPAWN_OFFSET);
+    cc.hitboxRadius = 20.0f;
+    cc.position = mc.spawnPosition;
+    if (mc.type == MELEE) {
+      cc.velocity = {
+        randf(ENEMY_MELEE_VELOCITY_MIN, ENEMY_MELEE_VELOCITY_MAX),
+        randf(ENEMY_MELEE_VELOCITY_MIN, ENEMY_MELEE_VELOCITY_MAX)};
+    } else if (mc.type == RANGE) {
+      cc.velocity = {
+        randf(ENEMY_RANGE_VELOCITY_MIN, ENEMY_RANGE_VELOCITY_MAX),
+        randf(ENEMY_RANGE_VELOCITY_MIN, ENEMY_RANGE_VELOCITY_MAX)};
+      TimerComponent& tc = registry.emplace<TimerComponent>(e);
+      tc.maxTime = randf(
+        ENEMY_SHOOT_INTERVAL_BASE - ENEMY_SHOOT_INTERVAL_RAND,
+        ENEMY_SHOOT_INTERVAL_BASE + ENEMY_SHOOT_INTERVAL_RAND
+      );
+      tc.timeLeft = tc.maxTime;
+    }
+  }
 }
 
 static bool checkWeaponCollision(
@@ -41,6 +76,10 @@ static bool checkWeaponCollision(
 int main() {
   srand(GetTime());
   bool canSwing = false;
+
+  int score(0);
+  int requiredEnemyCount(BASE_ENEMY_COUNT);
+
   entt::registry registry;
   
   
@@ -64,6 +103,12 @@ int main() {
   weaponTc.timeLeft = weaponTc.maxTime;
   
   
+  UniformGrid unigrid =
+    UniformGrid(WINDOW_HEIGHT, WINDOW_WIDTH, UNIGRID_CELL_SIZE);
+
+  bool gameHasJustStarted(true);
+  float startWaitTime(0.0f);
+
   float accumulator(0.0f);
   float deltaTime(0.0f);
   float lastSwordSwingTime(0.0f);
@@ -75,6 +120,15 @@ int main() {
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
     Texture playerTexture = LoadTexture("Assets/rsword.png");
+
+    if (gameHasJustStarted) {
+      // Wait a bit before spawning enemies
+      if (startWaitTime < WAIT_TIME_BEFORE_FIRST_SPAWN) {
+        startWaitTime += deltaTime;
+      } else {
+        gameHasJustStarted = false;
+      }
+    }
 
     Vector2 playerMoveDirection = Vector2Zero();
     if (IsKeyDown(KEY_W)) {
@@ -92,27 +146,20 @@ int main() {
     playerMoveDirection = Vector2Normalize(playerMoveDirection);
 
     // Enemy Spawning
-    if (IsKeyPressed(KEY_SPACE)) {
-      entt::entity e = registry.create();
-
-      CharacterComponent& cc = registry.emplace<CharacterComponent>(e);
-      MobComponent& mc = registry.emplace<MobComponent>(e);
-      mc.type = (rng(50)) ? MELEE : RANGE;
-      mc.spawnPosition =
-        chooseSpawnPosition(WINDOW_WIDTH, WINDOW_HEIGHT, SPAWN_OFFSET);
-      cc.hitboxRadius = 20.0f;
-      cc.position = mc.spawnPosition;
-      if (mc.type == MELEE) {
-        cc.velocity = {
-          randf(ENEMY_MELEE_VELOCITY_MIN, ENEMY_MELEE_VELOCITY_MAX),
-          randf(ENEMY_MELEE_VELOCITY_MIN, ENEMY_MELEE_VELOCITY_MAX)};
-      } else if (mc.type == RANGE) {
-        cc.velocity = {
-          randf(ENEMY_RANGE_VELOCITY_MIN, ENEMY_RANGE_VELOCITY_MAX),
-          randf(ENEMY_RANGE_VELOCITY_MIN, ENEMY_RANGE_VELOCITY_MAX)};
-        TimerComponent& tc = registry.emplace<TimerComponent>(e);
-        tc.maxTime = ENEMY_SHOOT_INTERVAL;
-        tc.timeLeft = tc.maxTime;
+    // Depends on score
+    // Every 500 points, amount should increase by 10
+    // Spawn when enemies are a quarter of enemyCount
+    if (!gameHasJustStarted) {
+      auto enemies = registry.view<MobComponent>();
+      int currentEnemyCount = enemies.size();
+      for (auto e : enemies) {
+        MobComponent& mc = registry.get<MobComponent>(e);
+        if (mc.type == BULLET) {
+          currentEnemyCount--;
+        }
+      }
+      if (currentEnemyCount <= floor(requiredEnemyCount / 4.0f)) {
+        spawnEnemies(registry, requiredEnemyCount + ADDITIONAL_ENEMY_COUNT);
       }
     }
 
@@ -143,6 +190,7 @@ int main() {
 
 
     // Physics Process
+    unigrid.clearCells();
     accumulator += deltaTime;
     while (accumulator >= TIMESTEP) {
       CharacterComponent& playerCc =
@@ -214,7 +262,7 @@ int main() {
               moveTowards(cc, playerCc.position, TIMESTEP);
               break;
             case RANGE:
-              moveTowardsWithLimit(
+              moveTowardsWithSlowOnLimit(
                 cc, playerCc.position, ENEMY_RANGE_SAFE_DISTANCE, TIMESTEP
               );
               break;
@@ -222,13 +270,40 @@ int main() {
               break;
           }
 
-          // Prevent enemies from going offscreen
+          // Check collision with other mobs
+          if (mc->type != BULLET) {
+            for (auto otherMob : characters) {
+							PlayerComponent* otherMobPc = registry.try_get<PlayerComponent>(otherMob);
+							MobComponent* otherMobMc = registry.try_get<MobComponent>(otherMob);
+							// Don't collide with player and bullets
+              if (
+								otherMobPc
+								|| otherMobMc->type == BULLET
+							) {
+                continue;
+              }
+              CharacterComponent& otherMobCc =
+                registry.get<CharacterComponent>(otherMob);
+              if (charactersAreColliding(cc, otherMobCc)) {
+                separateCharacters(cc, otherMobCc);
+              }
+            }
+          }
 
           // Destroy character if it collides with player
-          if (checkCharacterCollision(playerCc, cc)) {
+          if (charactersAreColliding(playerCc, cc)) {
+            ScoreOnKillComponent* sokc =
+              registry.try_get<ScoreOnKillComponent>(e);
+            if (sokc) {
+              score += sokc->score;
+              printf("%d\n", score);
+            }
             registry.destroy(e);
           }
         }
+
+        refreshUnigridPositions(&cc, UNIGRID_CELL_SIZE);
+        unigrid.refreshPosition(&cc);
       }
       accumulator -= TIMESTEP;
     }
@@ -236,6 +311,10 @@ int main() {
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
+    // Uniform Grid
+    unigrid.draw();
+
+    // Entities
     auto characters = registry.view<CharacterComponent>();
     for (auto e : characters) {
       CharacterComponent& cc = registry.get<CharacterComponent>(e);
