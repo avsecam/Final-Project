@@ -19,6 +19,8 @@ const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
 const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
 
+const KeyboardKey PAUSE_KEY(KEY_TAB);
+
 const float UNIGRID_CELL_SIZE(60.0f);
 
 const float WAIT_TIME_BEFORE_FIRST_SPAWN(1.0f);
@@ -27,12 +29,25 @@ const int ADDITIONAL_ENEMY_COUNT(5
 );  // How many more enemies to add after score threshold
 
 const float PLAYER_MOVESPEED(180.0f);
+
 static bool checkCharacterCollision(
   const CharacterComponent& a, const CharacterComponent& b
 ) {
   float sumOfRadii(pow(a.hitboxRadius + b.hitboxRadius, 2));
   float distanceBetweenCenters(Vector2DistanceSqr(a.position, b.position));
+
+  return (sumOfRadii >= distanceBetweenCenters);
 }
+
+static bool checkWeaponCollision(
+  const meleeWeaponComponent& a, const CharacterComponent& b
+) {
+  float sumOfRadii(pow(a.hitboxRadius + b.hitboxRadius, 2));
+  float distanceBetweenCenters(Vector2DistanceSqr(a.position, b.position));
+
+  return (sumOfRadii >= distanceBetweenCenters);
+}
+
 static void spawnEnemies(entt::registry& registry, const int amount) {
   for (int i = 0; i < amount; i++) {
     entt::entity e = registry.create();
@@ -63,26 +78,21 @@ static void spawnEnemies(entt::registry& registry, const int amount) {
   }
 }
 
-static bool checkWeaponCollision(
-  const meleeWeaponComponent& a, const CharacterComponent& b
-) {
-  float sumOfRadii(pow(a.hitboxRadius + b.hitboxRadius, 2));
-  float distanceBetweenCenters(Vector2DistanceSqr(a.position, b.position));
-
-  return (sumOfRadii >= distanceBetweenCenters);
-}
-
-
 int main() {
   srand(GetTime());
-  bool canSwing = false;
 
+  State state;
+
+  // MENUS
+  MenuHandler menuHandler;
+  menuHandler.initialize(WINDOW_WIDTH, WINDOW_HEIGHT);
+
+  // VARIABLES FOR GAME
   int score(0);
   int requiredEnemyCount(BASE_ENEMY_COUNT);
 
   entt::registry registry;
-  
-  
+
   // Create player
   entt::entity playerEntity;
   if (registry.view<PlayerComponent>().size() <= 0) {
@@ -96,13 +106,15 @@ int main() {
 
   entt::entity weaponEntity;
   weaponEntity = registry.create();
-  meleeWeaponComponent& wc = registry.emplace<meleeWeaponComponent>(weaponEntity);
+  meleeWeaponComponent& wc =
+    registry.emplace<meleeWeaponComponent>(weaponEntity);
   TimerComponent& weaponTc = registry.emplace<TimerComponent>(weaponEntity);
   wc.hitboxRadius = 50.0f;
   weaponTc.maxTime = SWORD_SWING_INTERVAL;
   weaponTc.timeLeft = weaponTc.maxTime;
-  
-  
+
+  bool canSwing = false;
+
   UniformGrid unigrid =
     UniformGrid(WINDOW_HEIGHT, WINDOW_WIDTH, UNIGRID_CELL_SIZE);
 
@@ -117,241 +129,290 @@ int main() {
 
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(TARGET_FPS);
+
+  // TEXTURES
+  Texture playerTexture = LoadTexture("./assets/rsword.png");
+
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
-    Texture playerTexture = LoadTexture("Assets/rsword.png");
 
-    if (gameHasJustStarted) {
-      // Wait a bit before spawning enemies
-      if (startWaitTime < WAIT_TIME_BEFORE_FIRST_SPAWN) {
-        startWaitTime += deltaTime;
-      } else {
-        gameHasJustStarted = false;
-      }
-    }
+    state = menuHandler.getState();
 
-    Vector2 playerMoveDirection = Vector2Zero();
-    if (IsKeyDown(KEY_W)) {
-      playerMoveDirection.y -= 1.0f;
-    }
-    if (IsKeyDown(KEY_A)) {
-      playerMoveDirection.x -= 1.0f;
-    }
-    if (IsKeyDown(KEY_S)) {
-      playerMoveDirection.y += 1.0f;
-    }
-    if (IsKeyDown(KEY_D)) {
-      playerMoveDirection.x += 1.0f;
-    }
-    playerMoveDirection = Vector2Normalize(playerMoveDirection);
+		CharacterComponent& playerCc =
+			registry.get<CharacterComponent>(playerEntity);
 
-    // Enemy Spawning
-    // Depends on score
-    // Every 500 points, amount should increase by 10
-    // Spawn when enemies are a quarter of enemyCount
-    if (!gameHasJustStarted) {
-      auto enemies = registry.view<MobComponent>();
-      int currentEnemyCount = enemies.size();
-      for (auto e : enemies) {
-        MobComponent& mc = registry.get<MobComponent>(e);
-        if (mc.type == BULLET) {
-          currentEnemyCount--;
+    if (state == InGame) {
+      if (gameHasJustStarted) {
+        score = 0;
+        // Wait a bit before spawning enemies
+        if (startWaitTime < WAIT_TIME_BEFORE_FIRST_SPAWN) {
+          startWaitTime += deltaTime;
+        } else {
+          gameHasJustStarted = false;
         }
       }
-      if (currentEnemyCount <= floor(requiredEnemyCount / 4.0f)) {
-        spawnEnemies(registry, requiredEnemyCount + ADDITIONAL_ENEMY_COUNT);
-      }
-    }
 
-    // Attack
-    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
-      if (canSwing) {
-        std::cout << "SUCCESSFUL SWING! " << weaponTc.timeLeft << std::endl;
+      Vector2 playerMoveDirection = Vector2Zero();
+      if (IsKeyDown(KEY_W)) {
+        playerMoveDirection.y -= 1.0f;
+      }
+      if (IsKeyDown(KEY_A)) {
+        playerMoveDirection.x -= 1.0f;
+      }
+      if (IsKeyDown(KEY_S)) {
+        playerMoveDirection.y += 1.0f;
+      }
+      if (IsKeyDown(KEY_D)) {
+        playerMoveDirection.x += 1.0f;
+      }
+      playerMoveDirection = Vector2Normalize(playerMoveDirection);
+
+      if (IsKeyPressed(PAUSE_KEY)) {
+        menuHandler.setState(InPauseScreen);
+      }
+
+      // Enemy Spawning
+      // Depends on score
+      // Every 500 points, amount should increase by 10
+      // Spawn when enemies are a quarter of enemyCount
+      if (!gameHasJustStarted) {
+        auto enemies = registry.view<MobComponent>();
+        int currentEnemyCount = enemies.size();
+        for (auto e : enemies) {
+          MobComponent& mc = registry.get<MobComponent>(e);
+          if (mc.type == BULLET) {
+            currentEnemyCount--;
+          }
+        }
+        if (currentEnemyCount <= ceil(requiredEnemyCount / 4.0f)) {
+          spawnEnemies(registry, requiredEnemyCount + ADDITIONAL_ENEMY_COUNT);
+        }
+      }
+
+      // Attack
+      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (canSwing) {
+          std::cout << "SUCCESSFUL SWING! " << weaponTc.timeLeft << std::endl;
+          auto characters = registry.view<CharacterComponent>();
+          for (auto e : characters) {
+            CharacterComponent& cc = registry.get<CharacterComponent>(e);
+
+            MobComponent* mc = registry.try_get<MobComponent>(e);
+            if (mc) {
+              if (checkWeaponCollision(wc, cc)) {
+                registry.destroy(e);
+              }
+            }
+            canSwing = false;
+            weaponTc.timeLeft = weaponTc.maxTime;
+          }
+        } else {
+          std::cout << "CANNOT SWING YET, TIME LEFT: " << weaponTc.timeLeft
+                    << std::endl;
+        }
+      }
+
+      // Physics Process
+      unigrid.clearCells();
+      accumulator += deltaTime;
+      while (accumulator >= TIMESTEP) {
+
+        // Move player character
+        playerCc.position = Vector2Add(
+          playerCc.position,
+          Vector2Scale(playerMoveDirection, PLAYER_MOVESPEED * TIMESTEP)
+        );
+
+        // Weapon Hitbox Tracking
+        wc.position = Vector2Add(
+          playerCc.position, Vector2Scale(
+                               Vector2Normalize(Vector2Subtract(
+                                 GetMousePosition(), playerCc.position
+                               )),
+                               SWORD_REACH
+                             )
+        );
+        if (weaponTc.timeLeft <= 0.0f) {
+          canSwing = true;
+        } else {
+          weaponTc.timeLeft -= TIMESTEP;
+        }
+
+        // std::cout << wc.position.x << " | " << wc.position.y << std::endl;
+
         auto characters = registry.view<CharacterComponent>();
-        for (auto e: characters) {
+        for (auto e : characters) {
           CharacterComponent& cc = registry.get<CharacterComponent>(e);
 
+          TimerComponent* tc = registry.try_get<TimerComponent>(e);
+          StraightMovementComponent* smc =
+            registry.try_get<StraightMovementComponent>(e);
           MobComponent* mc = registry.try_get<MobComponent>(e);
-          if (mc) {
-            if (checkWeaponCollision(wc, cc)) {
+
+          // Check if range enemy should shoot
+          if (tc) {
+            tc->timeLeft -= TIMESTEP;
+            if (tc->timeLeft <= 0.0f) {
+              // Create and shoot bullet
+              entt::entity e = registry.create();
+              CharacterComponent& bulletCc =
+                registry.emplace<CharacterComponent>(e);
+              MobComponent& mc = registry.emplace<MobComponent>(e);
+              StraightMovementComponent& smc =
+                registry.emplace<StraightMovementComponent>(e);
+              mc.type = BULLET;
+              mc.spawnPosition = cc.position;
+              bulletCc.hitboxRadius = 5.0f;
+              bulletCc.position = cc.position;
+              bulletCc.velocity = {BULLET_SPEED, BULLET_SPEED};
+              smc.direction =
+                Vector2Normalize(Vector2Subtract(playerCc.position, cc.position)
+                );
+
+              tc->timeLeft = tc->maxTime;
+            }
+          }
+
+          if (smc) {
+            moveDirectional(cc, smc->direction, TIMESTEP);
+            // Destroy SMC if it's not visible anymore
+            if (!isWithinRectangle(
+                  cc.position, {0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT}
+                )) {
               registry.destroy(e);
             }
           }
-          canSwing = false;
-          weaponTc.timeLeft = weaponTc.maxTime;
+
+          // Move mobs
+          if (mc) {
+            switch (mc->type) {
+              case MELEE:
+                moveTowards(cc, playerCc.position, TIMESTEP);
+                break;
+              case RANGE:
+                moveTowardsWithSlowOnLimit(
+                  cc, playerCc.position, ENEMY_RANGE_SAFE_DISTANCE, TIMESTEP
+                );
+                break;
+              default:
+                break;
+            }
+
+            // Check collision with other mobs
+            if (mc->type != BULLET) {
+              for (auto otherMob : characters) {
+                PlayerComponent* otherMobPc =
+                  registry.try_get<PlayerComponent>(otherMob);
+                MobComponent* otherMobMc =
+                  registry.try_get<MobComponent>(otherMob);
+                // Don't collide with player and bullets
+                if (otherMobPc || otherMobMc->type == BULLET) {
+                  continue;
+                }
+                CharacterComponent& otherMobCc =
+                  registry.get<CharacterComponent>(otherMob);
+                if (charactersAreColliding(cc, otherMobCc)) {
+                  separateCharacters(cc, otherMobCc);
+                }
+              }
+            }
+
+            // Destroy character if it collides with player
+            if (charactersAreColliding(playerCc, cc)) {
+              ScoreOnKillComponent* sokc =
+                registry.try_get<ScoreOnKillComponent>(e);
+              PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
+
+              if (sokc) {
+                score += sokc->score;
+                printf("%d\n", score);
+              }
+              registry.destroy(e);
+              pc.hp -= 1;
+
+              // GAME OVER?
+              if (pc.hp <= 0) {
+                menuHandler.gameOverScreen.scoreLabel.text = "SCORE: " + std::to_string(score);
+                menuHandler.setState(InGameOverScreen);
+              }
+            }
+          }
+
+          refreshUnigridPositions(&cc, UNIGRID_CELL_SIZE);
+          unigrid.refreshPosition(&cc);
         }
+        accumulator -= TIMESTEP;
       }
-      else{
-        std::cout<<"CANNOT SWING YET, TIME LEFT: " << weaponTc.timeLeft << std::endl; 
-      }
-       
     }
-  
 
-
-    // Physics Process
-    unigrid.clearCells();
-    accumulator += deltaTime;
-    while (accumulator >= TIMESTEP) {
-      CharacterComponent& playerCc =
-        registry.get<CharacterComponent>(playerEntity);
-
-      // Move player character
-      playerCc.position = Vector2Add(
-        playerCc.position,
-        Vector2Scale(playerMoveDirection, PLAYER_MOVESPEED * TIMESTEP)
-      );
-
-      //Weapon Hitbox Tracking
-      wc.position = Vector2Add(playerCc.position, Vector2Scale(Vector2Normalize(Vector2Subtract(GetMousePosition(), playerCc.position)), SWORD_REACH));
-      if (weaponTc.timeLeft <= 0.0f){
-        canSwing = true;
-      }
-      else{
-        weaponTc.timeLeft -= TIMESTEP;
-      }
-      
-      //std::cout << wc.position.x << " | " << wc.position.y << std::endl;
-
-      auto characters = registry.view<CharacterComponent>();
-      for (auto e : characters) {
-        CharacterComponent& cc = registry.get<CharacterComponent>(e);
-
-        TimerComponent* tc = registry.try_get<TimerComponent>(e);
-        StraightMovementComponent* smc =
-          registry.try_get<StraightMovementComponent>(e);
-        MobComponent* mc = registry.try_get<MobComponent>(e);
-
-        // Check if range enemy should shoot
-        if (tc) {
-          tc->timeLeft -= TIMESTEP;
-          if (tc->timeLeft <= 0.0f) {
-            // Create and shoot bullet
-            entt::entity e = registry.create();
-            CharacterComponent& bulletCc =
-              registry.emplace<CharacterComponent>(e);
-            MobComponent& mc = registry.emplace<MobComponent>(e);
-            StraightMovementComponent& smc =
-              registry.emplace<StraightMovementComponent>(e);
-            mc.type = BULLET;
-            mc.spawnPosition = cc.position;
-            bulletCc.hitboxRadius = 5.0f;
-            bulletCc.position = cc.position;
-            bulletCc.velocity = {BULLET_SPEED, BULLET_SPEED};
-            smc.direction =
-              Vector2Normalize(Vector2Subtract(playerCc.position, cc.position));
-
-            tc->timeLeft = tc->maxTime;
-          }
+    else {
+      if (state == InMainMenu) {  // Reset the game
+        score = 0;
+        requiredEnemyCount = BASE_ENEMY_COUNT;
+        playerCc.position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+				gameHasJustStarted = true;
+				startWaitTime = 0.0f;
+        for (auto mob : registry.view<MobComponent>()) {
+          registry.destroy(mob);
         }
-
-        if (smc) {
-          moveDirectional(cc, smc->direction, TIMESTEP);
-          // Destroy SMC if it's not visible anymore
-          if (!isWithinRectangle(
-                cc.position, {0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT}
-              )) {
-            registry.destroy(e);
-          }
-        }
-
-        // Move mobs
-        if (mc) {
-          switch (mc->type) {
-            case MELEE:
-              moveTowards(cc, playerCc.position, TIMESTEP);
-              break;
-            case RANGE:
-              moveTowardsWithSlowOnLimit(
-                cc, playerCc.position, ENEMY_RANGE_SAFE_DISTANCE, TIMESTEP
-              );
-              break;
-            default:
-              break;
-          }
-
-          // Check collision with other mobs
-          if (mc->type != BULLET) {
-            for (auto otherMob : characters) {
-							PlayerComponent* otherMobPc = registry.try_get<PlayerComponent>(otherMob);
-							MobComponent* otherMobMc = registry.try_get<MobComponent>(otherMob);
-							// Don't collide with player and bullets
-              if (
-								otherMobPc
-								|| otherMobMc->type == BULLET
-							) {
-                continue;
-              }
-              CharacterComponent& otherMobCc =
-                registry.get<CharacterComponent>(otherMob);
-              if (charactersAreColliding(cc, otherMobCc)) {
-                separateCharacters(cc, otherMobCc);
-              }
-            }
-          }
-
-          // Destroy character if it collides with player
-          if (charactersAreColliding(playerCc, cc)) {
-            ScoreOnKillComponent* sokc =
-              registry.try_get<ScoreOnKillComponent>(e);
-            if (sokc) {
-              score += sokc->score;
-              printf("%d\n", score);
-            }
-            registry.destroy(e);
-          }
-        }
-
-        refreshUnigridPositions(&cc, UNIGRID_CELL_SIZE);
-        unigrid.refreshPosition(&cc);
-      }
-      accumulator -= TIMESTEP;
+      } else if (state == InPauseScreen) {
+				if (IsKeyPressed(PAUSE_KEY)) {
+					menuHandler.setState(InGame);
+				}
+			}
+      menuHandler.Update();
     }
 
     BeginDrawing();
     ClearBackground(RAYWHITE);
 
-    // Uniform Grid
-    unigrid.draw();
+    if (state == InGame || state == InPauseScreen) {
+      // Uniform Grid
+      // unigrid.draw();
 
-    // Entities
-    auto characters = registry.view<CharacterComponent>();
-    for (auto e : characters) {
-      CharacterComponent& cc = registry.get<CharacterComponent>(e);
-      Color color;
-      MobComponent* mc = registry.try_get<MobComponent>(e);
-      PlayerComponent* pc = registry.try_get<PlayerComponent>(e);
-      if (mc) {
-        switch (mc->type) {
-          case MELEE:
-            color = RED;
-            break;
-          case RANGE:
-            color = YELLOW;
-            break;
-          case BULLET:
-            color = GREEN;
-            break;
-          default:
-            color = BLACK;
+      // Entities
+      auto characters = registry.view<CharacterComponent>();
+      for (auto e : characters) {
+        CharacterComponent& cc = registry.get<CharacterComponent>(e);
+        Color color;
+        MobComponent* mc = registry.try_get<MobComponent>(e);
+        PlayerComponent* pc = registry.try_get<PlayerComponent>(e);
+        if (mc) {
+          switch (mc->type) {
+            case MELEE:
+              color = RED;
+              break;
+            case RANGE:
+              color = YELLOW;
+              break;
+            case BULLET:
+              color = GREEN;
+              break;
+            default:
+              color = BLACK;
+          }
+          DrawCircleV(cc.position, cc.hitboxRadius, color);
         }
-        DrawCircleV(cc.position, cc.hitboxRadius, color);
+        if (pc) {
+          Vector2 texOffset;
+          texOffset.x = 100;
+          texOffset.y = 100;
+          DrawCircleV(cc.position, cc.hitboxRadius, BLUE);
+          DrawTextureEx(
+            playerTexture, Vector2Subtract(cc.position, texOffset), 1.0, 2.0,
+            WHITE
+          );
+        }
       }
-      if (pc) {
-        Vector2 texOffset;
-        texOffset.x = 100;
-        texOffset.y = 100;
-        DrawCircleV(cc.position, cc.hitboxRadius, BLUE);
-        DrawTextureEx(playerTexture, Vector2Subtract(cc.position, texOffset), 1.0, 2.0, WHITE);
+
+      auto weap = registry.view<meleeWeaponComponent>();
+      for (auto e : weap) {
+        meleeWeaponComponent* wc = registry.try_get<meleeWeaponComponent>(e);
+        // DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
       }
-  
     }
-    auto weap = registry.view<meleeWeaponComponent>();
-    for (auto e : weap) {
-      meleeWeaponComponent* wc = registry.try_get<meleeWeaponComponent>(e);
-      //DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
-    }
-    
+
+    menuHandler.Draw();
 
     EndDrawing();
   }

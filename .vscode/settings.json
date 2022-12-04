@@ -95,5 +95,6 @@
     "sstream": "cpp",
     "xlocmon": "cpp",
     "xloctime": "cpp"
-  }
+	},
+	"git.ignoreLimitWarning": true
 }

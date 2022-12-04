@@ -8,6 +8,14 @@
 
 #include "components.hpp"
 
+enum State {
+	InMainMenu = 0,
+	InScoreScreen = 1,
+	InPauseScreen = 2,
+	InGameOverScreen = 3,
+	InGame = 4
+};
+
 // https://cplusplus.com/forum/beginner/81180/
 // Returns a random float within min and max
 static float randf(const float min, const float max) {
