@@ -12,7 +12,7 @@
 
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
-const int SWORD_REACH(80);
+const int SWORD_REACH(40);
 const int SWORD_SWING_INTERVAL(1.0f);
 const int PLAYER_HEALTH(10);
 const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
@@ -91,7 +91,7 @@ int main() {
   // VARIABLES FOR GAME
   int score(0);
   int requiredEnemyCount(BASE_ENEMY_COUNT);
-
+  bool isAttacking;
   entt::registry registry;
 
   // Create player
@@ -110,7 +110,7 @@ int main() {
   meleeWeaponComponent& wc =
     registry.emplace<meleeWeaponComponent>(weaponEntity);
   TimerComponent& weaponTc = registry.emplace<TimerComponent>(weaponEntity);
-  wc.hitboxRadius = 50.0f;
+  wc.hitboxRadius = 40.0f;
   weaponTc.maxTime = SWORD_SWING_INTERVAL;
   weaponTc.timeLeft = weaponTc.maxTime;
 
@@ -126,17 +126,17 @@ int main() {
   float deltaTime(0.0f);
   float lastSwordSwingTime(0.0f);
   float aimAngle;
-  Vector2 attackHitboxPosition;
 
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(TARGET_FPS);
 
   // TEXTURES
-  Texture playerTexture = LoadTexture("./assets/rsword.png");
+  Texture playerTexture = LoadTexture("./assets/knight.png");
+  Texture playerAttackingTexture = LoadTexture("./assets/knightAttack.png");
 
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
-
+    isAttacking = false;
     state = menuHandler.getState();
 
 		CharacterComponent& playerCc =
@@ -191,13 +191,15 @@ int main() {
       }
 
       // Attack
-      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+      if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+        isAttacking = true;
         if (canSwing) {
           std::cout << "SUCCESSFUL SWING! " << weaponTc.timeLeft << std::endl;
+
           auto characters = registry.view<CharacterComponent>();
           for (auto e : characters) {
             CharacterComponent& cc = registry.get<CharacterComponent>(e);
-
+            
             MobComponent* mc = registry.try_get<MobComponent>(e);
             if (mc) {
               if (checkWeaponCollision(wc, cc)) {
@@ -329,7 +331,7 @@ int main() {
                 printf("%d\n", score);
               }
               registry.destroy(e);
-              pc.hp -= 1;
+              //pc.hp -= 1;
 
               // GAME OVER?
               if (pc.hp <= 0) {
@@ -396,21 +398,32 @@ int main() {
           DrawCircleV(cc.position, cc.hitboxRadius, color);
         }
         if (pc) {
-          Vector2 texOffset;
-          texOffset.x = 100;
-          texOffset.y = 100;
-          DrawCircleV(cc.position, cc.hitboxRadius, BLUE);
-          DrawTextureEx(
-            playerTexture, Vector2Subtract(cc.position, texOffset), 1.0, 2.0,
-            WHITE
-          );
+          Rectangle playerRec; // Texture coords
+          Rectangle windowRec; //
+          playerRec.x = 0;
+          playerRec.y = 0; 
+          playerRec.width = 100;
+          playerRec.height = 53;
+          windowRec.x = cc.position.x;
+          windowRec.y = cc.position.y;
+          windowRec.width = 67;
+          windowRec.height = 53;
+
+
+          DrawCircleV(cc.position, cc.hitboxRadius, GRAY);
+          if (isAttacking == false) {
+            DrawTexturePro(playerTexture, playerRec, windowRec, {67/4, 25}, findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG, WHITE);
+          } else {
+            DrawTexturePro(playerAttackingTexture, playerRec, windowRec, {67/4, 25}, findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG, WHITE);
+          }
+          
         }
       }
 
       auto weap = registry.view<meleeWeaponComponent>();
       for (auto e : weap) {
         meleeWeaponComponent* wc = registry.try_get<meleeWeaponComponent>(e);
-        // DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
+        //DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
       }
     }
 

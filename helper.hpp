@@ -2,7 +2,7 @@
 #define HELPER
 
 #include <raylib.h>
-
+#include <raymath.h>
 #include <climits>
 #include <cstdlib>
 
@@ -58,6 +58,14 @@ static Vector2 chooseSpawnPosition(
     };
   }
   return outsidePosition;
+}
+
+float findRotationAngle(
+  Vector2 characterPos, Vector2 mousePos
+) {
+  float resultAngle;
+  resultAngle = atan2f(mousePos.y - characterPos.y, mousePos.x - characterPos.x);
+  return resultAngle;
 }
 
 #endif
