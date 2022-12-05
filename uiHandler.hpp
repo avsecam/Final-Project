@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <cctype>
 
 #include "helper.hpp"
 
@@ -22,6 +23,11 @@ State gameState = InMainMenu;
 int num_of_scores = 0;
 int max_score = 0;
 int min_score = 0;
+int new_score = 0;
+
+bool score_update = false;
+
+std::string user_name = "";
 
 // --------------------------------------------------
 //                 MISC COMPONENTS
@@ -87,21 +93,30 @@ struct UIContainer : public UIComponent {
 // Base Button Struct
 struct Button : public UIComponent {
   std::string text;
+  bool active;
 
   void (*buttonAction)();
 
   void Draw() override {
-    if (isHovered) {
+    if (isHovered && active) {
       DrawRectangleRec(bounds, RED);
-    } else {
+    } else if (active) {
       DrawRectangleRec(bounds, GRAY);
+    } else {
+      DrawRectangleRec(bounds, DARKGRAY);
     }
     // Centering the Text to the Button
     Vector2 textDimensions =
       MeasureTextEx(GetFontDefault(), text.c_str(), FONT_SIZE_1, 1);
     int textX = (bounds.x + (bounds.width / 2.1)) - (textDimensions.x / 2);
     int textY = (bounds.y + (bounds.height / 2)) - (textDimensions.y / 2);
-    DrawText(text.c_str(), textX, textY, FONT_SIZE_1, WHITE);
+    
+    if (active) {
+      DrawText(text.c_str(), textX, textY, FONT_SIZE_1, WHITE);
+    } else {
+      DrawText(text.c_str(), textX, textY, FONT_SIZE_1, LIGHTGRAY);
+    }
+    
   }
 
   bool HandleHover(Vector2 mousePosition) override {
@@ -115,9 +130,11 @@ struct Button : public UIComponent {
 
   bool HandleClick(Vector2 clickPosition) override {
     if (CheckCollisionPointRec(clickPosition, bounds)) {
-      std::cout << "I Am Pressed" << std::endl;
-      buttonAction();
-      return true;
+      if (active) {
+        std::cout << "I Am Pressed" << std::endl;
+        buttonAction();
+        return true;
+      } else { return false; }
     }
     return false;
   }
@@ -175,6 +192,54 @@ struct Label : public UIComponent {
   bool HandleClick(Vector2 clickPosition) override { return false; }
 };
 
+
+struct TextField : public UIComponent {
+  char text[4];
+  int letterCount;
+  int fontSize;
+  Color textColor;
+  bool isMax;
+
+  void Draw() override {
+    if (letterCount == 0) {
+      text[letterCount] = '_';
+    }
+    user_name = text;
+    DrawText(text, bounds.x, bounds.y, fontSize, textColor);
+  }
+
+  void AddLetter(char letter) {
+    text[letterCount] = toupper(letter);
+    std::cout << letterCount << std::endl;
+    if ((letterCount < 2) && (letterCount >= 0)) {
+      text[letterCount + 1] = '_';
+      text[letterCount + 2] = '\0';
+    }
+    else {
+      text[letterCount+1] = '\0';
+    }
+
+    if (letterCount >= 2) {
+      isMax = true;
+    }
+
+    letterCount += 1;
+  }
+
+  void RemoveLetter() {
+    letterCount--;
+    if (letterCount < 0) letterCount = 0;
+    text[letterCount] = '_';
+    text[letterCount + 1] = '\0';
+    isMax = false;
+  }
+
+  bool HandleHover(Vector2 mousePosition) override { return false; }
+
+  bool HandleClick(Vector2 clickPosition) override { return false; }
+};
+
+
 struct UILibrary {
   UIContainer rootContainer;
 
@@ -199,14 +264,83 @@ void goToMainMenu() { gameState = InMainMenu; };
 void goToScoreScreen() { gameState = InScoreScreen; };
 void goToPauseScreen() { gameState = InPauseScreen; };
 void goToGameOverScreen() { gameState = InGameOverScreen; };
-void saveScore() { std::cout << "SAVING SCORE" << std::endl; };
+void saveScore() { 
+  std::fstream highScoreFile;
+  std::ofstream newHighScoreFile;
+  int currentScore; 
+  bool addedNewScore = false;
+  std::vector<std::string> scoreList;
+
+  highScoreFile.open("high_scores.txt");
+  std::string line;
+  float scoreNumber = 1;
+
+  while (getline(highScoreFile, line)) {
+    int end = line.find(" ");
+    std::string score = line.substr(0, end - 0);
+    std::string name = line.substr(end, line.length());
+
+    currentScore = stoi(score);
+
+    
+    if (currentScore > new_score) {
+      if (scoreList.size() < 10) {
+        scoreList.push_back(line);
+      }
+    }
+    else if ((currentScore == new_score) && !addedNewScore) {
+      if (scoreList.size() < 10) {
+        scoreList.push_back(std::to_string(new_score) + " " + user_name);
+      }
+      addedNewScore = true;
+    }
+    else if ((currentScore == new_score) && addedNewScore){
+      if (scoreList.size() < 10) {
+        scoreList.push_back(line);
+      }
+    }
+    else if ((currentScore < new_score) && addedNewScore) {
+      if (scoreList.size() < 10) {
+        scoreList.push_back(line);
+      }
+    }
+    else {
+      if (scoreList.size() < 10) {
+        scoreList.push_back(std::to_string(new_score) + " " + user_name);
+        addedNewScore = true;
+      }
+      if (scoreList.size() < 10) {
+        scoreList.push_back(line);
+      }
+    }
+  }
+
+  if ((scoreList.size() < 10) && (!addedNewScore)) {
+    scoreList.push_back(std::to_string(new_score) + " " + user_name);
+  }
+
+  highScoreFile.close();
+
+  newHighScoreFile.open("high_scores.txt", std::ofstream::trunc);
+
+  for(size_t i = 0; i < scoreList.size(); i++)
+  {
+    newHighScoreFile << scoreList[i] << std::endl;
+  }
+
+  newHighScoreFile.close();
+
+  score_update = true;
+
+  gameState = InScoreScreen;
+};
 
 struct Menu {
   UILibrary uiLibrary;
 
   virtual void createUI(float windowWidth, float windowHeight) = 0;
 
-  void Update() { uiLibrary.Update(); }
+  virtual void Update() = 0; 
 
   void Draw() { uiLibrary.Draw(); }
 };
@@ -223,7 +357,7 @@ struct MainMenu : public Menu {
       windowWidth / 2 - BUTTON_WIDTH_1 / 2,
       windowHeight / 2 - BUTTON_HEIGHT_1 / 2, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
     startGameButton.buttonAction = startGame;
-
+    startGameButton.active = true;
     uiLibrary.rootContainer.AddChild(&startGameButton);
 
     checkHighScoresButton.text = "CHECK HIGHSCORES";
@@ -231,8 +365,12 @@ struct MainMenu : public Menu {
       windowWidth / 2 - BUTTON_WIDTH_1 / 2, windowHeight / 2 + BUTTON_HEIGHT_1,
       BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
     checkHighScoresButton.buttonAction = goToScoreScreen;
-
+    checkHighScoresButton.active = true;
     uiLibrary.rootContainer.AddChild(&checkHighScoresButton);
+  }
+
+  void Update() override {
+    uiLibrary.Update(); 
   }
 };
 
@@ -260,6 +398,7 @@ struct ScoreScreen : public Menu {
     std::string line;
     float scoreNumber = 1;
     while (getline(highScoreFile, line)) {
+      score_cards.clear();
       std::cout << "ADDING SCORE" << std::endl;
       int end = line.find(" ");
       std::string score = line.substr(0, end - 0);
@@ -311,8 +450,12 @@ struct ScoreScreen : public Menu {
       windowWidth / 2 - BUTTON_WIDTH_1 / 2, windowHeight - BUTTON_HEIGHT_1 * 2,
       BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
     returnToMainMenuButton.buttonAction = goToMainMenu;
-
+    returnToMainMenuButton.active = true;
     uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
+  }
+
+  void Update() override {
+    uiLibrary.Update(); 
   }
 };
 
@@ -336,7 +479,7 @@ struct PauseScreen : Menu {
       (windowWidth / 2 - BUTTON_WIDTH_1 / 2) - (BUTTON_WIDTH_1 * float(0.75)),
       windowHeight / 2 - BUTTON_HEIGHT_1 / 2, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
     returnToMainMenuButton.buttonAction = goToMainMenu;
-
+    returnToMainMenuButton.active = true;
     uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
 
     returnToGameButton.text = "BACK TO GAME";
@@ -344,14 +487,20 @@ struct PauseScreen : Menu {
       (windowWidth / 2 - BUTTON_WIDTH_1 / 2) + (BUTTON_WIDTH_1 * float(0.75)),
       windowHeight / 2 - BUTTON_HEIGHT_1 / 2, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
     returnToGameButton.buttonAction = startGame;
-
+    returnToGameButton.active = true;
     uiLibrary.rootContainer.AddChild(&returnToGameButton);
+  }
+
+  void Update() override {
+    uiLibrary.Update(); 
   }
 };
 
 struct GameOverScreen : Menu {
-  Label gameOverScreenLabel, scoreLabel;
+  Label gameOverScreenLabel, scoreLabel, setNameLabel;
   Button returnToMainMenuButton, saveScoreButton;
+  TextField playerName;
+
   void createUI(float windowWidth, float windowHeight) override {
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
 
@@ -366,19 +515,38 @@ struct GameOverScreen : Menu {
 
     scoreLabel.text = "SCORE: 0";
     scoreLabel.bounds = {
-      windowWidth / 2, windowHeight / 2 - FONT_SIZE_3 * 2, 0, FONT_SIZE_2};
+      windowWidth / 2, windowHeight / 2 - FONT_SIZE_3 * float(2.5), 0, FONT_SIZE_2};
     scoreLabel.fontSize = FONT_SIZE_2;
     scoreLabel.setCenterAlign();
     scoreLabel.textColor = BLACK;
 
     uiLibrary.rootContainer.AddChild(&scoreLabel);
 
+    setNameLabel.text = "NAME:";
+    setNameLabel.bounds = {
+      windowWidth / 2 - 20, windowHeight / 2 - FONT_SIZE_3 * float(1.5), 0, FONT_SIZE_2};
+    setNameLabel.fontSize = FONT_SIZE_2;
+    setNameLabel.setRightAlign();
+    setNameLabel.textColor = BLACK;
+
+    uiLibrary.rootContainer.AddChild(&setNameLabel);
+
+    playerName.bounds = {
+      windowWidth / 2 + 20, windowHeight / 2 - FONT_SIZE_3 * float(1.5), 0, FONT_SIZE_2};
+    playerName.fontSize = FONT_SIZE_2;
+    playerName.textColor = BLACK;
+    playerName.letterCount = 0;
+    playerName.isMax = false;
+
+    uiLibrary.rootContainer.AddChild(&playerName);
+
+      
     saveScoreButton.text = "SAVE SCORE";
     saveScoreButton.bounds = {
       windowWidth / 2 - BUTTON_WIDTH_1 / 2,
       windowHeight / 2 - BUTTON_HEIGHT_1 / 2, BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
     saveScoreButton.buttonAction = saveScore;
-
+    saveScoreButton.active = false;
     uiLibrary.rootContainer.AddChild(&saveScoreButton);
 
     returnToMainMenuButton.text = "MAIN MENU";
@@ -386,8 +554,26 @@ struct GameOverScreen : Menu {
       windowWidth / 2 - BUTTON_WIDTH_1 / 2, windowHeight / 2 + BUTTON_HEIGHT_1,
       BUTTON_WIDTH_1, BUTTON_HEIGHT_1};
     returnToMainMenuButton.buttonAction = goToMainMenu;
-
+    returnToMainMenuButton.active = true;
     uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
+  }
+
+  void Update() {
+    uiLibrary.Update();
+
+    if (playerName.isMax) {
+      saveScoreButton.active = true;
+    } else { saveScoreButton.active = false; }
+
+    int key = GetCharPressed();
+    if ((key >= 32) && (key <= 125) && (playerName.letterCount < 3))
+    {
+      playerName.AddLetter((char)key);
+    }
+
+    if (IsKeyPressed(KEY_BACKSPACE)) {
+      playerName.RemoveLetter();
+    }
   }
 };
 
@@ -397,8 +583,12 @@ struct MenuHandler {
   ScoreScreen scoreScreen;
   PauseScreen pauseScreen;
   GameOverScreen gameOverScreen;
+  float menuWindowWidth, menuWindowHeight;
 
   void initialize(float windowWidth, float windowHeight) {
+    menuWindowWidth = windowWidth;
+    menuWindowHeight = windowHeight;
+
     mainMenu.createUI(windowWidth, windowHeight);
     scoreScreen.createUI(windowWidth, windowHeight);
     pauseScreen.createUI(windowWidth, windowHeight);
@@ -412,8 +602,15 @@ struct MenuHandler {
     menuList.push_back(&gameOverScreen);
   }
 
+  
   void Update() {
     if (gameState == InGame) return;
+
+    if (score_update) {
+      scoreScreen.createUI(menuWindowWidth, menuWindowHeight);
+      score_update = false;
+    }
+
     menuList[gameState]->Update();
   }
 

@@ -14,6 +14,7 @@ const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
 const int SWORD_REACH(80);
 const int SWORD_SWING_INTERVAL(1.0f);
+const int PLAYER_HEALTH(10);
 const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
 
 const int TARGET_FPS(60);
@@ -101,7 +102,7 @@ int main() {
     PlayerComponent& pc = registry.emplace<PlayerComponent>(playerEntity);
     cc.hitboxRadius = 25.0f;
     cc.position = {WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f};
-    pc.hp = 10;
+    pc.hp = PLAYER_HEALTH;
   }
 
   entt::entity weaponEntity;
@@ -333,6 +334,7 @@ int main() {
               // GAME OVER?
               if (pc.hp <= 0) {
                 menuHandler.gameOverScreen.scoreLabel.text = "SCORE: " + std::to_string(score);
+                new_score = score;
                 menuHandler.setState(InGameOverScreen);
               }
             }
