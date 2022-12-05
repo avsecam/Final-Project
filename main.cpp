@@ -13,7 +13,8 @@
 const int WINDOW_WIDTH(1280);
 const int WINDOW_HEIGHT(720);
 const int SWORD_REACH(40);
-const int SWORD_SWING_INTERVAL(1.0f);
+const float SWORD_SWING_INTERVAL(0.5f);
+const float ATTACK_ANIMATION_LENGTH(0.15f);
 const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
 
 const int TARGET_FPS(60);
@@ -113,6 +114,13 @@ int main() {
   weaponTc.maxTime = SWORD_SWING_INTERVAL;
   weaponTc.timeLeft = weaponTc.maxTime;
 
+  entt::entity weaponAnimationEntity;
+  weaponAnimationEntity = registry.create();
+  TimerComponent& animTimerTc = registry.emplace<TimerComponent>(weaponAnimationEntity);
+  animTimerTc.maxTime = ATTACK_ANIMATION_LENGTH;
+  animTimerTc.timeLeft = animTimerTc.maxTime;
+  
+
   bool canSwing = false;
 
   UniformGrid unigrid =
@@ -135,7 +143,7 @@ int main() {
 
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
-    isAttacking = false;
+    
     state = menuHandler.getState();
 
 		CharacterComponent& playerCc =
@@ -190,10 +198,9 @@ int main() {
       }
 
       // Attack
-      if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-        isAttacking = true;
+      if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (canSwing) {
-          std::cout << "SUCCESSFUL SWING! " << weaponTc.timeLeft << std::endl;
+          isAttacking = true;
 
           auto characters = registry.view<CharacterComponent>();
           for (auto e : characters) {
@@ -218,14 +225,14 @@ int main() {
       unigrid.clearCells();
       accumulator += deltaTime;
       while (accumulator >= TIMESTEP) {
-
+        std::cout << "IS ATTACKING = " << isAttacking << std::endl;
         // Move player character
         playerCc.position = Vector2Add(
           playerCc.position,
           Vector2Scale(playerMoveDirection, PLAYER_MOVESPEED * TIMESTEP)
         );
 
-        // Weapon Hitbox Tracking
+        // Weapon Hitbox Tracking and Swing Cooldown
         wc.position = Vector2Add(
           playerCc.position, Vector2Scale(
                                Vector2Normalize(Vector2Subtract(
@@ -240,8 +247,21 @@ int main() {
           weaponTc.timeLeft -= TIMESTEP;
         }
 
-        // std::cout << wc.position.x << " | " << wc.position.y << std::endl;
+        // Weapon Animation 
+        if (isAttacking) {
+          animTimerTc.timeLeft -= TIMESTEP;
+          if (animTimerTc.timeLeft <= 0){
+            isAttacking = false;
+            animTimerTc.timeLeft = animTimerTc.maxTime;
+          }
 
+        }
+
+        
+
+
+        // std::cout << wc.position.x << " | " << wc.position.y << std::endl;
+      
         auto characters = registry.view<CharacterComponent>();
         for (auto e : characters) {
           CharacterComponent& cc = registry.get<CharacterComponent>(e);
@@ -330,7 +350,7 @@ int main() {
                 printf("%d\n", score);
               }
               registry.destroy(e);
-              //pc.hp -= 1;
+              pc.hp -= 1;
 
               // GAME OVER?
               if (pc.hp <= 0) {
@@ -366,7 +386,7 @@ int main() {
     }
 
     BeginDrawing();
-    ClearBackground(RAYWHITE);
+    ClearBackground(BROWN);
 
     if (state == InGame || state == InPauseScreen) {
       // Uniform Grid
@@ -408,7 +428,7 @@ int main() {
           windowRec.height = 53;
 
 
-          DrawCircleV(cc.position, cc.hitboxRadius, GRAY);
+          
           if (isAttacking == false) {
             DrawTexturePro(playerTexture, playerRec, windowRec, {67/4, 25}, findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG, WHITE);
           } else {
