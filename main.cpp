@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include <raymath.h>
+#include <string.h>
 
 #include <iostream>
 #include <string>
@@ -27,7 +28,7 @@ const float UNIGRID_CELL_SIZE(60.0f);
 
 const float WAIT_TIME_BEFORE_FIRST_SPAWN(1.0f);
 const int BASE_ENEMY_COUNT(5);
-const int ADDITIONAL_ENEMY_COUNT(5
+const int ADDITIONAL_ENEMY_COUNT(2
 );  // How many more enemies to add after score threshold
 
 const float PLAYER_MOVESPEED(180.0f);
@@ -139,12 +140,16 @@ int main() {
 
   std::vector<entt::entity> entitiesToDelete;
 
+	InitAudioDevice();
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(TARGET_FPS);
+
 
   // TEXTURES
   Texture playerTexture = LoadTexture("./assets/knight.png");
   Texture playerAttackingTexture = LoadTexture("./assets/knightAttack.png");
+
+	tick = LoadSound("./assets/tick.wav");
 
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
@@ -183,16 +188,16 @@ int main() {
       // Enemy Spawning
       // Spawn when enemies are a quarter of requiredEnemyCount
       if (!gameHasJustStarted) {
-        auto enemies = registry.view<MobComponent>();
-        int currentEnemyCount = enemies.size();
-        for (auto e : enemies) {
+        int currentEnemyCount = 0;
+        for (auto e : registry.view<MobComponent>()) {
           MobComponent& mc = registry.get<MobComponent>(e);
-          if (mc.type == BULLET || mc.type == FRIENDLY_BULLET) {
-            currentEnemyCount--;
+          if (mc.type == MELEE || mc.type == RANGE) {
+            currentEnemyCount++;
           }
         }
         if (currentEnemyCount <= ceil(requiredEnemyCount / 4.0f)) {
-          spawnEnemies(registry, requiredEnemyCount + ADDITIONAL_ENEMY_COUNT);
+          spawnEnemies(registry, currentEnemyCount + requiredEnemyCount);
+          requiredEnemyCount += ADDITIONAL_ENEMY_COUNT;
         }
       }
 
@@ -200,7 +205,7 @@ int main() {
       if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (canSwing) {
           isAttacking = true;
-
+          // Attack collision
           for (auto e : registry.view<CharacterComponent>()) {
             CharacterComponent& cc = registry.get<CharacterComponent>(e);
 
@@ -212,8 +217,8 @@ int main() {
                 if (sokc) {
                   score += sokc->score;
                 }
-                if (mc->type != BULLET) {
-                  entitiesToDelete.push_back(e);
+                if (mc->type == MELEE || mc->type == RANGE) {
+                  registry.destroy(e);
                 } else {
                   StraightMovementComponent* smc =
                     registry.try_get<StraightMovementComponent>(e);
@@ -235,9 +240,9 @@ int main() {
                 }
               }
             }
+            canSwing = false;
+            weaponTc.timeLeft = weaponTc.maxTime;
           }
-          canSwing = false;
-          weaponTc.timeLeft = weaponTc.maxTime;
         }
       }
 
@@ -313,7 +318,7 @@ int main() {
             if (!isWithinRectangle(
                   cc.position, {0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT}
                 )) {
-              entitiesToDelete.push_back(e);
+              registry.destroy(e);
             }
           }
 
@@ -332,56 +337,107 @@ int main() {
                 break;
             }
 
-            // Check collision with other mobs
-            if (mc->type == MELEE || mc->type == RANGE) {
-              for (auto otherMob : registry.view<CharacterComponent>()) {
-                PlayerComponent* otherMobPc =
-                  registry.try_get<PlayerComponent>(otherMob);
-                MobComponent* otherMobMc =
-                  registry.try_get<MobComponent>(otherMob);
+            // if (mc->type == MELEE || mc->type == RANGE) {
+            //   for (auto otherMob : registry.view<CharacterComponent>()) {
+            //     PlayerComponent* otherMobPc =
+            //       registry.try_get<PlayerComponent>(otherMob);
+            //     MobComponent* otherMobMc =
+            //       registry.try_get<MobComponent>(otherMob);
 
-                // Don't collide with player and bullets
-                if (otherMobPc || otherMobMc->type == BULLET) {
-                  continue;
-                }
+            //     // Don't collide with player and bullets
+            //     if (otherMobPc || otherMobMc->type == BULLET) {
+            //       continue;
+            //     }
 
-                CharacterComponent& otherMobCc =
-                  registry.get<CharacterComponent>(otherMob);
-                if (charactersAreColliding(cc, otherMobCc)) {
-                  ScoreOnKillComponent* sokc =
-                    registry.try_get<ScoreOnKillComponent>(e);
-                  // Collide with deflected bullets
-                  if (otherMobMc->type == FRIENDLY_BULLET) {
-                    if (sokc) {
-                      score += sokc->score;
-                    }
-                    entitiesToDelete.push_back(otherMob);
-                    entitiesToDelete.push_back(e);
-                  } else {
-                    separateCharacters(cc, otherMobCc);
-                  }
-                }
-              }
-            }
+            //     CharacterComponent& otherMobCc =
+            //       registry.get<CharacterComponent>(otherMob);
+            //     if (charactersAreColliding(cc, otherMobCc)) {
+            //       ScoreOnKillComponent* sokc =
+            //         registry.try_get<ScoreOnKillComponent>(e);
+            //       // Collide with deflected bullets
+            //       if (otherMobMc->type == FRIENDLY_BULLET) {
+            //         if (sokc) {
+            //           score += sokc->score;
+            //         }
+            //         registry.destroy(e);
+            //       } else {
+            //         separateCharacters(cc, otherMobCc);
+            //       }
+            //     }
+            //   }
+            // }
 
             // Destroy character if it collides with player
             if (charactersAreColliding(playerCc, cc)) {
               PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
-              entitiesToDelete.push_back(e);
+              registry.destroy(e);
               pc.hp -= 1;
 
               // GAME OVER?
               if (pc.hp <= 0) {
                 menuHandler.gameOverScreen.scoreLabel.text =
                   "SCORE: " + std::to_string(score);
+                memset(
+                  menuHandler.gameOverScreen.playerName.text, '\0',
+                  sizeof(menuHandler.gameOverScreen.playerName.text)
+                );
+                menuHandler.gameOverScreen.playerName.letterCount = 0;
                 newScore = score;
                 menuHandler.setState(InGameOverScreen);
               }
             }
           }
 
+          // Mob collisions
+          // Check collision with other mobs
+          for (size_t i = 0; i < unigrid.cells.size(); i++) {
+            for (size_t j = 0; j < unigrid.cells[i].size(); j++) {
+              for (size_t obj1 = 0; obj1 < unigrid.cells[i][j].objects.size();
+                   obj1++) {
+                for (size_t obj2 = 0; obj2 < unigrid.cells[i][j].objects.size();
+                     obj2++) {
+                  if (obj1 == obj2) continue;
+
+                  entt::entity eA = unigrid.cells[i][j].objects[obj1];
+                  entt::entity eB = unigrid.cells[i][j].objects[obj2];
+
+                  if (!registry.valid(eA) || !registry.valid(eB)) continue;
+
+                  // Don't collide with player
+                  if (registry.try_get<PlayerComponent>(eA) || registry.try_get<PlayerComponent>(eB))
+                    continue;
+
+                  MobComponent* aMc = registry.try_get<MobComponent>(eA);
+                  MobComponent* bMc = registry.try_get<MobComponent>(eB);
+
+                  // Don't collide with bullets
+                  if (aMc->type == BULLET || bMc->type == BULLET) continue;
+
+                  CharacterComponent* aCc =
+                    registry.try_get<CharacterComponent>(eA);
+                  CharacterComponent* bCc =
+                    registry.try_get<CharacterComponent>(eB);
+
+                  if (charactersAreColliding(*aCc, *bCc)) {
+                    ScoreOnKillComponent* aSokc =
+                      registry.try_get<ScoreOnKillComponent>(eA);
+                    // Collide with friendly bullets
+                    if (bMc->type == FRIENDLY_BULLET) {
+                      if (aSokc) {
+                        score += aSokc->score;
+                      }
+                      registry.destroy(eA);
+                    } else {
+                      separateCharacters(*aCc, *bCc);
+                    }
+                  }
+                }
+              }
+            }
+          }
+
           refreshUnigridPositions(&cc, UNIGRID_CELL_SIZE);
-          unigrid.refreshPosition(&cc);
+          unigrid.refreshPosition(registry, e);
         }
         accumulator -= TIMESTEP;
       }
@@ -397,7 +453,7 @@ int main() {
         gameHasJustStarted = true;
         startWaitTime = 0.0f;
         for (auto mob : registry.view<MobComponent>()) {
-          entitiesToDelete.push_back(mob);
+          registry.destroy(mob);
         }
       } else if (state == InPauseScreen) {
         if (IsKeyPressed(PAUSE_KEY)) {
@@ -412,7 +468,7 @@ int main() {
 
     if (state == InGame || state == InPauseScreen) {
       // Uniform Grid
-      // unigrid.draw();
+      unigrid.draw();
 
       // Entities
       for (auto e : registry.view<CharacterComponent>()) {
@@ -467,12 +523,6 @@ int main() {
         }
       }
 
-      auto weap = registry.view<meleeWeaponComponent>();
-      for (auto e : weap) {
-        meleeWeaponComponent* wc = registry.try_get<meleeWeaponComponent>(e);
-        // DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
-      }
-
       // score
       DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);
     }
@@ -480,13 +530,13 @@ int main() {
     menuHandler.Draw();
 
     EndDrawing();
-
-		// Delete entities
-		for (entt::entity entity : entitiesToDelete) {
-			registry.destroy(entity);
-		}
-		entitiesToDelete.clear();
   }
-  CloseWindow();
+  
+	UnloadTexture(playerTexture);
+	UnloadTexture(playerAttackingTexture);
+
+	CloseAudioDevice();
+	
+	CloseWindow();
   return 0;
 }

@@ -8,6 +8,7 @@
 #include <cmath>
 #include <vector>
 
+#include "entt.hpp"
 #include "components.hpp"
 
 static Vector2 convertToUnigridPosition(const Vector2 position, const float gridCellSize);
@@ -15,7 +16,7 @@ static Vector2 convertToUnigridPosition(const Vector2 position, const float grid
 struct Cell {
   Vector2 topLeft;
   int size;
-  std::vector<CharacterComponent*> objects;
+  std::vector<entt::entity> objects;
 
   Cell() {}
 
@@ -59,14 +60,17 @@ struct UniformGrid {
     }
   }
 
-  void refreshPosition(CharacterComponent* object) {
-    for (size_t j = 0; j < object->unigridPositions.size(); j++) {
-      int gridX = object->unigridPositions[j].x;
-      int gridY = object->unigridPositions[j].y;
+  void refreshPosition(entt::registry& r, entt::entity e) {
+		CharacterComponent* cc = r.try_get<CharacterComponent>(e);
+		if (!cc) return;
+
+    for (size_t j = 0; j < cc->unigridPositions.size(); j++) {
+      int gridX = cc->unigridPositions[j].x;
+      int gridY = cc->unigridPositions[j].y;
       // Only add if object is inside cells within screen borders
       bool isInsideValidCell = gridY < cells.size() && gridX < cells[0].size();
       if (isInsideValidCell) {
-        cells[gridY][gridX].objects.push_back(object);
+        cells[gridY][gridX].objects.push_back(e);
       }
     }
   }

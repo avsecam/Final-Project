@@ -29,6 +29,8 @@ bool scoreUpdate = false;
 
 std::string userName = "";
 
+Sound tick;
+
 // --------------------------------------------------
 //                  UI COMPONENTS
 // --------------------------------------------------
@@ -124,6 +126,7 @@ struct Button : public UIComponent {
     if (CheckCollisionPointRec(clickPosition, bounds)) {
       if (active) {
         buttonAction();
+				PlaySoundMulti(tick);
         return true;
       } else {
         return false;
@@ -202,7 +205,6 @@ struct TextField : public UIComponent {
 
   void AddLetter(char letter) {
     text[letterCount] = toupper(letter);
-    std::cout << letterCount << std::endl;
     if ((letterCount < 2) && (letterCount >= 0)) {
       text[letterCount + 1] = '_';
       text[letterCount + 2] = '\0';
@@ -278,20 +280,18 @@ void saveScore() {
         scoreList.push_back(line);
       } else if (newScore == currentScore) {
         scoreList.push_back(line);
+				if (scoreList.size() >= 10) break;
         scoreList.push_back(newScoreLine);
         addedNewScore = true;
       } else {
         scoreList.push_back(newScoreLine);
+				if (scoreList.size() >= 10) break;
         scoreList.push_back(line);
         addedNewScore = true;
       }
     } else {
       scoreList.push_back(line);
     }
-  }
-
-  if ((scoreList.size() < 10) && (!addedNewScore)) {
-    scoreList.push_back(std::to_string(newScore) + " " + userName);
   }
 
   highScoreFile.close();
@@ -371,7 +371,6 @@ struct ScoreScreen : public Menu {
     std::string line;
     float scoreNumber = 1;
     while (getline(highScoreFile, line)) {
-      std::cout << "ADDING SCORE" << std::endl;
       int end = line.find(" ");
       std::string score = line.substr(0, end - 0);
       std::string name = line.substr(end, line.length());
@@ -464,6 +463,8 @@ struct GameOverScreen : Menu {
   TextField playerName;
 
   void createUI(float windowWidth, float windowHeight) override {
+		uiLibrary.rootContainer.ClearChildren();
+
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
 
     gameOverScreenLabel.text = "GAME OVER";
