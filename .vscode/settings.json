@@ -96,6 +96,5 @@
     "xlocmon": "cpp",
     "xloctime": "cpp"
 	},
-  "git.ignoreLimitWarning": true,
-  "C_Cpp.errorSquiggles": "Disabled"
+  "git.ignoreLimitWarning": true
 }

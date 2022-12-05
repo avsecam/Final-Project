@@ -27,8 +27,9 @@ const float ENEMY_RANGE_SAFE_DISTANCE(300.0f);
 const float ENEMY_SHOOT_INTERVAL_BASE(5.0f);
 const float ENEMY_SHOOT_INTERVAL_RAND(4.0f);
 const float BULLET_SPEED(300.0f);
+const float FRIENDLY_BULLET_SPEED_MULTIPLIER(1.5f);
 const int SCORE_PER_KILL(10);
-enum MobType { MELEE, RANGE, BULLET };
+enum MobType { MELEE, RANGE, BULLET, FRIENDLY_BULLET };
 struct MobComponent {
   MobType type;
   Vector2 spawnPosition;

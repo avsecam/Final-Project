@@ -123,7 +123,6 @@ struct Button : public UIComponent {
   bool HandleClick(Vector2 clickPosition) override {
     if (CheckCollisionPointRec(clickPosition, bounds)) {
       if (active) {
-        std::cout << "I Am Pressed" << std::endl;
         buttonAction();
         return true;
       } else {

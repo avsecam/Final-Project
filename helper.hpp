@@ -60,6 +60,7 @@ static Vector2 chooseSpawnPosition(
   return outsidePosition;
 }
 
+// Returns radians
 float findRotationAngle(
   Vector2 characterPos, Vector2 mousePos
 ) {

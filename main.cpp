@@ -105,7 +105,9 @@ int main() {
     cc.position = {WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f};
     pc.hp = PLAYER_HEALTH;
   }
+  CharacterComponent& playerCc = registry.get<CharacterComponent>(playerEntity);
 
+  // WEAPON
   entt::entity weaponEntity;
   weaponEntity = registry.create();
   meleeWeaponComponent& wc =
@@ -135,6 +137,8 @@ int main() {
   float lastSwordSwingTime(0.0f);
   float aimAngle;
 
+  std::vector<entt::entity> entitiesToDelete;
+
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(TARGET_FPS);
 
@@ -147,12 +151,8 @@ int main() {
 
     state = menuHandler.getState();
 
-    CharacterComponent& playerCc =
-      registry.get<CharacterComponent>(playerEntity);
-
     if (state == InGame) {
       if (gameHasJustStarted) {
-        score = 0;
         // Wait a bit before spawning enemies
         if (startWaitTime < WAIT_TIME_BEFORE_FIRST_SPAWN) {
           startWaitTime += deltaTime;
@@ -181,15 +181,13 @@ int main() {
       }
 
       // Enemy Spawning
-      // Depends on score
-      // Every 500 points, amount should increase by 10
-      // Spawn when enemies are a quarter of enemyCount
+      // Spawn when enemies are a quarter of requiredEnemyCount
       if (!gameHasJustStarted) {
         auto enemies = registry.view<MobComponent>();
         int currentEnemyCount = enemies.size();
         for (auto e : enemies) {
           MobComponent& mc = registry.get<MobComponent>(e);
-          if (mc.type == BULLET) {
+          if (mc.type == BULLET || mc.type == FRIENDLY_BULLET) {
             currentEnemyCount--;
           }
         }
@@ -203,28 +201,43 @@ int main() {
         if (canSwing) {
           isAttacking = true;
 
-          auto characters = registry.view<CharacterComponent>();
-          for (auto e : characters) {
+          for (auto e : registry.view<CharacterComponent>()) {
             CharacterComponent& cc = registry.get<CharacterComponent>(e);
 
-            ScoreOnKillComponent* sokc =
-              registry.try_get<ScoreOnKillComponent>(e);	
             MobComponent* mc = registry.try_get<MobComponent>(e);
             if (mc) {
               if (checkWeaponCollision(wc, cc)) {
-								if (sokc) {
-									score += sokc->score;
-								}
-                registry.destroy(e);
+                ScoreOnKillComponent* sokc =
+                  registry.try_get<ScoreOnKillComponent>(e);
+                if (sokc) {
+                  score += sokc->score;
+                }
+                if (mc->type != BULLET) {
+                  entitiesToDelete.push_back(e);
+                } else {
+                  StraightMovementComponent* smc =
+                    registry.try_get<StraightMovementComponent>(e);
+                  if (smc) {
+                    // Deflect bullets
+                    mc->type = FRIENDLY_BULLET;
+                    cc.velocity = Vector2Scale(
+                      cc.velocity, FRIENDLY_BULLET_SPEED_MULTIPLIER
+                    );
+                    // Get the average angle between player rotation and smc
+                    // direction
+                    float playerRotation =
+                      findRotationAngle(playerCc.position, GetMousePosition());
+                    float bulletAngle =
+                      atan2f(-smc->direction.y, -smc->direction.x);
+                    float newBulletAngle = (playerRotation + bulletAngle) / 2;
+                    smc->direction = {cos(newBulletAngle), sin(newBulletAngle)};
+                  }
+                }
               }
             }
           }
           canSwing = false;
           weaponTc.timeLeft = weaponTc.maxTime;
-
-        } else {
-          std::cout << "CANNOT SWING YET, TIME LEFT: " << weaponTc.timeLeft
-                    << std::endl;
         }
       }
 
@@ -232,7 +245,6 @@ int main() {
       unigrid.clearCells();
       accumulator += deltaTime;
       while (accumulator >= TIMESTEP) {
-        std::cout << "IS ATTACKING = " << isAttacking << std::endl;
         // Move player character
         playerCc.position = Vector2Add(
           playerCc.position,
@@ -263,8 +275,7 @@ int main() {
           }
         }
 
-        auto characters = registry.view<CharacterComponent>();
-        for (auto e : characters) {
+        for (auto e : registry.view<CharacterComponent>()) {
           CharacterComponent& cc = registry.get<CharacterComponent>(e);
 
           TimerComponent* tc = registry.try_get<TimerComponent>(e);
@@ -302,7 +313,7 @@ int main() {
             if (!isWithinRectangle(
                   cc.position, {0.0f, 0.0f, WINDOW_WIDTH, WINDOW_HEIGHT}
                 )) {
-              registry.destroy(e);
+              entitiesToDelete.push_back(e);
             }
           }
 
@@ -322,20 +333,33 @@ int main() {
             }
 
             // Check collision with other mobs
-            if (mc->type != BULLET) {
-              for (auto otherMob : characters) {
+            if (mc->type == MELEE || mc->type == RANGE) {
+              for (auto otherMob : registry.view<CharacterComponent>()) {
                 PlayerComponent* otherMobPc =
                   registry.try_get<PlayerComponent>(otherMob);
                 MobComponent* otherMobMc =
                   registry.try_get<MobComponent>(otherMob);
+
                 // Don't collide with player and bullets
                 if (otherMobPc || otherMobMc->type == BULLET) {
                   continue;
                 }
+
                 CharacterComponent& otherMobCc =
                   registry.get<CharacterComponent>(otherMob);
                 if (charactersAreColliding(cc, otherMobCc)) {
-                  separateCharacters(cc, otherMobCc);
+                  ScoreOnKillComponent* sokc =
+                    registry.try_get<ScoreOnKillComponent>(e);
+                  // Collide with deflected bullets
+                  if (otherMobMc->type == FRIENDLY_BULLET) {
+                    if (sokc) {
+                      score += sokc->score;
+                    }
+                    entitiesToDelete.push_back(otherMob);
+                    entitiesToDelete.push_back(e);
+                  } else {
+                    separateCharacters(cc, otherMobCc);
+                  }
                 }
               }
             }
@@ -343,7 +367,7 @@ int main() {
             // Destroy character if it collides with player
             if (charactersAreColliding(playerCc, cc)) {
               PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
-              registry.destroy(e);
+              entitiesToDelete.push_back(e);
               pc.hp -= 1;
 
               // GAME OVER?
@@ -365,15 +389,15 @@ int main() {
 
     else {
       if (state == InMainMenu) {  // Reset the game
-				PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
-				pc.hp = PLAYER_HEALTH;
+        PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
+        pc.hp = PLAYER_HEALTH;
         score = 0;
         requiredEnemyCount = BASE_ENEMY_COUNT;
         playerCc.position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
         gameHasJustStarted = true;
         startWaitTime = 0.0f;
         for (auto mob : registry.view<MobComponent>()) {
-          registry.destroy(mob);
+          entitiesToDelete.push_back(mob);
         }
       } else if (state == InPauseScreen) {
         if (IsKeyPressed(PAUSE_KEY)) {
@@ -391,8 +415,7 @@ int main() {
       // unigrid.draw();
 
       // Entities
-      auto characters = registry.view<CharacterComponent>();
-      for (auto e : characters) {
+      for (auto e : registry.view<CharacterComponent>()) {
         CharacterComponent& cc = registry.get<CharacterComponent>(e);
         Color color;
         MobComponent* mc = registry.try_get<MobComponent>(e);
@@ -407,6 +430,9 @@ int main() {
               break;
             case BULLET:
               color = GREEN;
+              break;
+            case FRIENDLY_BULLET:
+              color = BLUE;
               break;
             default:
               color = BLACK;
@@ -447,13 +473,19 @@ int main() {
         // DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
       }
 
-			// score
-			DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);
+      // score
+      DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);
     }
 
     menuHandler.Draw();
 
     EndDrawing();
+
+		// Delete entities
+		for (entt::entity entity : entitiesToDelete) {
+			registry.destroy(entity);
+		}
+		entitiesToDelete.clear();
   }
   CloseWindow();
   return 0;
