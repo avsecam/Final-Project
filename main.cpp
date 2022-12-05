@@ -117,10 +117,10 @@ int main() {
 
   entt::entity weaponAnimationEntity;
   weaponAnimationEntity = registry.create();
-  TimerComponent& animTimerTc = registry.emplace<TimerComponent>(weaponAnimationEntity);
+  TimerComponent& animTimerTc =
+    registry.emplace<TimerComponent>(weaponAnimationEntity);
   animTimerTc.maxTime = ATTACK_ANIMATION_LENGTH;
   animTimerTc.timeLeft = animTimerTc.maxTime;
-  
 
   bool canSwing = false;
 
@@ -144,11 +144,11 @@ int main() {
 
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
-    
+
     state = menuHandler.getState();
 
-		CharacterComponent& playerCc =
-			registry.get<CharacterComponent>(playerEntity);
+    CharacterComponent& playerCc =
+      registry.get<CharacterComponent>(playerEntity);
 
     if (state == InGame) {
       if (gameHasJustStarted) {
@@ -206,16 +206,22 @@ int main() {
           auto characters = registry.view<CharacterComponent>();
           for (auto e : characters) {
             CharacterComponent& cc = registry.get<CharacterComponent>(e);
-            
+
+            ScoreOnKillComponent* sokc =
+              registry.try_get<ScoreOnKillComponent>(e);	
             MobComponent* mc = registry.try_get<MobComponent>(e);
             if (mc) {
               if (checkWeaponCollision(wc, cc)) {
+								if (sokc) {
+									score += sokc->score;
+								}
                 registry.destroy(e);
               }
             }
-            canSwing = false;
-            weaponTc.timeLeft = weaponTc.maxTime;
           }
+          canSwing = false;
+          weaponTc.timeLeft = weaponTc.maxTime;
+
         } else {
           std::cout << "CANNOT SWING YET, TIME LEFT: " << weaponTc.timeLeft
                     << std::endl;
@@ -248,21 +254,15 @@ int main() {
           weaponTc.timeLeft -= TIMESTEP;
         }
 
-        // Weapon Animation 
+        // Weapon Animation
         if (isAttacking) {
           animTimerTc.timeLeft -= TIMESTEP;
-          if (animTimerTc.timeLeft <= 0){
+          if (animTimerTc.timeLeft <= 0) {
             isAttacking = false;
             animTimerTc.timeLeft = animTimerTc.maxTime;
           }
-
         }
 
-        
-
-
-        // std::cout << wc.position.x << " | " << wc.position.y << std::endl;
-      
         auto characters = registry.view<CharacterComponent>();
         for (auto e : characters) {
           CharacterComponent& cc = registry.get<CharacterComponent>(e);
@@ -342,21 +342,15 @@ int main() {
 
             // Destroy character if it collides with player
             if (charactersAreColliding(playerCc, cc)) {
-              ScoreOnKillComponent* sokc =
-                registry.try_get<ScoreOnKillComponent>(e);
               PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
-
-              if (sokc) {
-                score += sokc->score;
-                printf("%d\n", score);
-              }
               registry.destroy(e);
               pc.hp -= 1;
 
               // GAME OVER?
               if (pc.hp <= 0) {
-                menuHandler.gameOverScreen.scoreLabel.text = "SCORE: " + std::to_string(score);
-                new_score = score;
+                menuHandler.gameOverScreen.scoreLabel.text =
+                  "SCORE: " + std::to_string(score);
+                newScore = score;
                 menuHandler.setState(InGameOverScreen);
               }
             }
@@ -371,19 +365,21 @@ int main() {
 
     else {
       if (state == InMainMenu) {  // Reset the game
+				PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
+				pc.hp = PLAYER_HEALTH;
         score = 0;
         requiredEnemyCount = BASE_ENEMY_COUNT;
         playerCc.position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
-				gameHasJustStarted = true;
-				startWaitTime = 0.0f;
+        gameHasJustStarted = true;
+        startWaitTime = 0.0f;
         for (auto mob : registry.view<MobComponent>()) {
           registry.destroy(mob);
         }
       } else if (state == InPauseScreen) {
-				if (IsKeyPressed(PAUSE_KEY)) {
-					menuHandler.setState(InGame);
-				}
-			}
+        if (IsKeyPressed(PAUSE_KEY)) {
+          menuHandler.setState(InGame);
+        }
+      }
       menuHandler.Update();
     }
 
@@ -418,10 +414,10 @@ int main() {
           DrawCircleV(cc.position, cc.hitboxRadius, color);
         }
         if (pc) {
-          Rectangle playerRec; // Texture coords
-          Rectangle windowRec; //
+          Rectangle playerRec;  // Texture coords
+          Rectangle windowRec;  //
           playerRec.x = 0;
-          playerRec.y = 0; 
+          playerRec.y = 0;
           playerRec.width = 100;
           playerRec.height = 53;
           windowRec.x = cc.position.x;
@@ -429,22 +425,30 @@ int main() {
           windowRec.width = 67;
           windowRec.height = 53;
 
-
-          
           if (isAttacking == false) {
-            DrawTexturePro(playerTexture, playerRec, windowRec, {67/4, 25}, findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG, WHITE);
+            DrawTexturePro(
+              playerTexture, playerRec, windowRec, {67 / 4, 25},
+              findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG,
+              WHITE
+            );
           } else {
-            DrawTexturePro(playerAttackingTexture, playerRec, windowRec, {67/4, 25}, findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG, WHITE);
+            DrawTexturePro(
+              playerAttackingTexture, playerRec, windowRec, {67 / 4, 25},
+              findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG,
+              WHITE
+            );
           }
-          
         }
       }
 
       auto weap = registry.view<meleeWeaponComponent>();
       for (auto e : weap) {
         meleeWeaponComponent* wc = registry.try_get<meleeWeaponComponent>(e);
-        //DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
+        // DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
       }
+
+			// score
+			DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);
     }
 
     menuHandler.Draw();
