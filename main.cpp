@@ -153,6 +153,8 @@ int main() {
   InitWindow(WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE);
   SetTargetFPS(TARGET_FPS);
 
+  menuHandler.inGameGUI.hpBar.InitBar(PLAYER_HEALTH);
+  health = PLAYER_HEALTH;
 
   // TEXTURES
   Texture playerTexture = LoadTexture("./assets/knight.png");
@@ -361,7 +363,8 @@ int main() {
               PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
               registry.destroy(e);
               pc.hp -= 1;
-
+              health = pc.hp;
+              std::cout << health << std::endl;
               // GAME OVER?
               if (pc.hp <= 0) {
                 menuHandler.gameOverScreen.scoreLabel.text =
@@ -436,6 +439,8 @@ int main() {
     else {
       if (state == InMainMenu) {  // Reset the game
         PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
+        menuHandler.inGameGUI.hpBar.InitBar(PLAYER_HEALTH);
+        health = PLAYER_HEALTH;
         pc.hp = PLAYER_HEALTH;
         score = 0;
         requiredEnemyCount = BASE_ENEMY_COUNT;
@@ -452,8 +457,9 @@ int main() {
           menuHandler.setState(InGame);
         }
       }
-      menuHandler.Update();
     }
+
+    menuHandler.Update();
 
     BeginDrawing();
     ClearBackground(BROWN);
@@ -550,6 +556,7 @@ int main() {
 
       // score
       DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);
+      newScore = score;
     }
 
     menuHandler.menuList[InMainMenu]->loadBackgroundTexture(mainMenuBackground);
