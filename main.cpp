@@ -17,7 +17,7 @@ const int SWORD_REACH(40);
 const float SWORD_SWING_INTERVAL(0.5f);
 const float ATTACK_ANIMATION_LENGTH(0.15f);
 const int PLAYER_HEALTH(10);
-const char* WINDOW_TITLE("⚔ Hack and Slash ⚔");
+const char* WINDOW_TITLE("⚔ HAKENSLASH ⚔");
 
 const int TARGET_FPS(60);
 const float TIMESTEP(1.0f / TARGET_FPS);
@@ -148,6 +148,7 @@ int main() {
   // TEXTURES
   Texture playerTexture = LoadTexture("./assets/knight.png");
   Texture playerAttackingTexture = LoadTexture("./assets/knightAttack.png");
+  Texture mainMenuBackground = LoadTexture("./assets/Hakenslash.png");
 
 	tick = LoadSound("./assets/tick.wav");
 
@@ -527,6 +528,8 @@ int main() {
       DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);
     }
 
+    menuHandler.menuList[InMainMenu]->loadBackgroundTexture(mainMenuBackground);
+
     menuHandler.Draw();
 
     EndDrawing();
@@ -534,6 +537,7 @@ int main() {
   
 	UnloadTexture(playerTexture);
 	UnloadTexture(playerAttackingTexture);
+  menuHandler.menuList[InMainMenu]->unloadBackgroundTexture();
 
 	CloseAudioDevice();
 	

@@ -85,6 +85,18 @@ struct UIContainer : public UIComponent {
   }
 };
 
+struct BackgroundImage: public UIComponent {
+  Texture backgroundImageTexture;
+
+  void Draw() override {
+    DrawTexture(backgroundImageTexture, bounds.x, bounds.y, WHITE);
+  }
+
+  bool HandleHover(Vector2 mousePosition) override { return false; }
+
+  bool HandleClick(Vector2 clickPosition) override { return false; }
+};
+
 // Base Button Struct
 struct Button : public UIComponent {
   std::string text;
@@ -316,15 +328,23 @@ struct Menu {
 
   virtual void Update() = 0;
 
+  virtual void loadBackgroundTexture(Texture tex) = 0;
+
+  virtual void unloadBackgroundTexture() = 0;
+
   void Draw() { uiLibrary.Draw(); }
 };
 
 struct MainMenu : public Menu {
   Button startGameButton;
   Button checkHighScoresButton;
+  BackgroundImage startMenuBackground;
 
   void createUI(float windowWidth, float windowHeight) override {
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
+
+    startMenuBackground.bounds = {0, 0, windowWidth, windowHeight};
+    uiLibrary.rootContainer.AddChild(&startMenuBackground);
 
     startGameButton.text = "START GAME";
     startGameButton.bounds = {
@@ -341,6 +361,14 @@ struct MainMenu : public Menu {
     checkHighScoresButton.buttonAction = goToScoreScreen;
     checkHighScoresButton.active = true;
     uiLibrary.rootContainer.AddChild(&checkHighScoresButton);
+  }
+
+  void loadBackgroundTexture(Texture tex) override {
+    startMenuBackground.backgroundImageTexture = tex;
+  }
+
+  void unloadBackgroundTexture() override {
+    UnloadTexture(startMenuBackground.backgroundImageTexture);
   }
 
   void Update() override { uiLibrary.Update(); }
@@ -371,6 +399,7 @@ struct ScoreScreen : public Menu {
     std::string line;
     float scoreNumber = 1;
     while (getline(highScoreFile, line)) {
+      std::cout << line << std::endl;
       int end = line.find(" ");
       std::string score = line.substr(0, end - 0);
       std::string name = line.substr(end, line.length());
@@ -419,6 +448,10 @@ struct ScoreScreen : public Menu {
     uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
   }
 
+  void loadBackgroundTexture(Texture tex) override {}
+
+  void unloadBackgroundTexture() override {}
+
   void Update() override { uiLibrary.Update(); }
 };
 
@@ -453,6 +486,10 @@ struct PauseScreen : Menu {
     returnToGameButton.active = true;
     uiLibrary.rootContainer.AddChild(&returnToGameButton);
   }
+
+  void loadBackgroundTexture(Texture tex) override {}
+
+  void unloadBackgroundTexture() override {}
 
   void Update() override { uiLibrary.Update(); }
 };
@@ -522,6 +559,10 @@ struct GameOverScreen : Menu {
     returnToMainMenuButton.active = true;
     uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
   }
+
+  void loadBackgroundTexture(Texture tex) override {}
+  
+  void unloadBackgroundTexture() override {}
 
   void Update() {
     uiLibrary.Update();
