@@ -247,9 +247,9 @@ int main() {
       }
 
       // Physics Process
-      unigrid.clearCells();
       accumulator += deltaTime;
       while (accumulator >= TIMESTEP) {
+      	unigrid.clearCells();
         // Move player character
         playerCc.position = Vector2Add(
           playerCc.position,
@@ -336,36 +336,6 @@ int main() {
               default:
                 break;
             }
-
-            // if (mc->type == MELEE || mc->type == RANGE) {
-            //   for (auto otherMob : registry.view<CharacterComponent>()) {
-            //     PlayerComponent* otherMobPc =
-            //       registry.try_get<PlayerComponent>(otherMob);
-            //     MobComponent* otherMobMc =
-            //       registry.try_get<MobComponent>(otherMob);
-
-            //     // Don't collide with player and bullets
-            //     if (otherMobPc || otherMobMc->type == BULLET) {
-            //       continue;
-            //     }
-
-            //     CharacterComponent& otherMobCc =
-            //       registry.get<CharacterComponent>(otherMob);
-            //     if (charactersAreColliding(cc, otherMobCc)) {
-            //       ScoreOnKillComponent* sokc =
-            //         registry.try_get<ScoreOnKillComponent>(e);
-            //       // Collide with deflected bullets
-            //       if (otherMobMc->type == FRIENDLY_BULLET) {
-            //         if (sokc) {
-            //           score += sokc->score;
-            //         }
-            //         registry.destroy(e);
-            //       } else {
-            //         separateCharacters(cc, otherMobCc);
-            //       }
-            //     }
-            //   }
-            // }
 
             // Destroy character if it collides with player
             if (charactersAreColliding(playerCc, cc)) {
