@@ -54,9 +54,7 @@ struct UIContainer : public UIComponent {
 
   void AddChild(UIComponent* child) { children.push_back(child); }
 
-	void ClearChildren() {
-		children.clear();
-	}
+  void ClearChildren() { children.clear(); }
 
   void Draw() override {
     for (size_t i = 0; i < children.size(); i++) {
@@ -126,7 +124,7 @@ struct Button : public UIComponent {
     if (CheckCollisionPointRec(clickPosition, bounds)) {
       if (active) {
         buttonAction();
-				PlaySoundMulti(tick);
+        PlaySoundMulti(tick);
         return true;
       } else {
         return false;
@@ -276,22 +274,21 @@ void saveScore() {
     currentScore = stoi(score);
 
     if (!addedNewScore) {
-      if (newScore < currentScore) {
+      if (newScore <= currentScore) {
         scoreList.push_back(line);
-      } else if (newScore == currentScore) {
-        scoreList.push_back(line);
-				if (scoreList.size() >= 10) break;
-        scoreList.push_back(newScoreLine);
-        addedNewScore = true;
       } else {
         scoreList.push_back(newScoreLine);
-				if (scoreList.size() >= 10) break;
+        if (scoreList.size() >= 10) break;
         scoreList.push_back(line);
         addedNewScore = true;
       }
     } else {
       scoreList.push_back(line);
     }
+  }
+
+  if (!addedNewScore && scoreList.size() < 10) {
+    scoreList.push_back(newScoreLine);
   }
 
   highScoreFile.close();
@@ -355,7 +352,7 @@ struct ScoreScreen : public Menu {
   int currentScore;
 
   void createUI(float windowWidth, float windowHeight) override {
-		uiLibrary.rootContainer.ClearChildren();
+    uiLibrary.rootContainer.ClearChildren();
 
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
 
@@ -408,7 +405,6 @@ struct ScoreScreen : public Menu {
 
     min_score = currentScore;
     highScoreFile.close();
-
 
     returnToMainMenuButton.text = "MAIN MENU";
     returnToMainMenuButton.bounds = {
@@ -463,7 +459,7 @@ struct GameOverScreen : Menu {
   TextField playerName;
 
   void createUI(float windowWidth, float windowHeight) override {
-		uiLibrary.rootContainer.ClearChildren();
+    uiLibrary.rootContainer.ClearChildren();
 
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
 
