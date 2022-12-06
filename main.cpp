@@ -123,7 +123,7 @@ int main() {
   meleeWeaponComponent& wc =
     registry.emplace<meleeWeaponComponent>(weaponEntity);
   TimerComponent& weaponTc = registry.emplace<TimerComponent>(weaponEntity);
-  wc.hitboxRadius = 40.0f;
+  wc.hitboxRadius = 60.0f;
   weaponTc.maxTime = SWORD_SWING_INTERVAL;
   weaponTc.timeLeft = weaponTc.maxTime;
 
@@ -490,28 +490,37 @@ int main() {
           Rectangle windowRec;  //
           playerRec.x = 0;
           playerRec.y = 0;
-          playerRec.width = 100;
-          playerRec.height = 53;
+          playerRec.width = 200;
+          playerRec.height = 106;
           windowRec.x = cc.position.x;
           windowRec.y = cc.position.y;
-          windowRec.width = 67;
-          windowRec.height = 53;
+          windowRec.width = 134;
+          windowRec.height = 106;
 
+          
           if (isAttacking == false) {
             DrawTexturePro(
-              playerTexture, playerRec, windowRec, {67 / 4, 25},
+              playerTexture, playerRec, windowRec, {67 / 2, 50},
               findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG,
               WHITE
             );
           } else {
             DrawTexturePro(
-              playerAttackingTexture, playerRec, windowRec, {67 / 4, 25},
+              playerAttackingTexture, playerRec, windowRec, {67 / 2, 50},
               findRotationAngle(cc.position, GetMousePosition()) * RAD2DEG,
               WHITE
             );
           }
         }
       }
+
+      // Weapon Hitbox Visual
+      //auto weap = registry.view<meleeWeaponComponent>();
+      //for (auto e : weap) {
+        //meleeWeaponComponent* wc = registry.try_get<meleeWeaponComponent>(e);
+        //DrawCircleV(wc->position, wc->hitboxRadius, GREEN);
+      //}
+
 
       // score
       DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);

@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 430 JAP
 310 AAA
 260 BOB
@@ -7,3 +8,15 @@
 150 LLL
 140 321
 10 JED
+=======
+690 BUT
+470 BUT
+360 GEN
+340 A1R
+250 BUT
+240 DDD
+180 SSS
+180 WDA
+30 WWW
+20 MBM
+>>>>>>> Stashed changes
