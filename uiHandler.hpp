@@ -24,6 +24,7 @@ int num_of_scores = 0;
 int max_score = 0;
 int min_score = 0;
 int newScore = 0;
+int health = 0;
 
 bool scoreUpdate = false;
 
@@ -51,12 +52,17 @@ struct UIComponent {
 // A Container for other UIComponents
 struct UIContainer : public UIComponent {
   std::vector<UIComponent*> children;
+  bool transparent;
+  Color containerColor;
 
   void AddChild(UIComponent* child) { children.push_back(child); }
 
   void ClearChildren() { children.clear(); }
 
   void Draw() override {
+    if (!transparent) {
+      DrawRectangle(bounds.x, bounds.y, bounds.width, bounds.height, containerColor);
+    }
     for (size_t i = 0; i < children.size(); i++) {
       children[i]->Draw();
     }
@@ -144,6 +150,43 @@ struct Button : public UIComponent {
     }
     return false;
   }
+};
+
+struct Bar : public UIComponent{
+  float barFill;
+  int maxValue;
+  int currentValue;
+
+  void Draw() override {
+    DrawRectangle(bounds.x, bounds.y, bounds.width, bounds.height, GRAY);
+
+    if (maxValue == currentValue) {
+      barFill = bounds.width;
+    }
+    else {
+      barFill = (bounds.width / maxValue) * currentValue;
+    }
+
+    DrawRectangle(bounds.x, bounds.y, barFill, bounds.height, GREEN);
+  }
+
+  void InitBar(int value) {
+    maxValue = value;
+    currentValue = maxValue;
+  }
+
+  void UpdateBar(int value) {
+    if (value >= maxValue) {
+      currentValue = maxValue;
+    }
+    else {
+      currentValue = value;
+    }
+  }
+
+  bool HandleHover(Vector2 mousePosition) override { return false; }
+
+  bool HandleClick(Vector2 clickPosition) override { return false; }
 };
 
 // Base Label Struct
@@ -339,6 +382,7 @@ struct MainMenu : public Menu {
 
   void createUI(float windowWidth, float windowHeight) override {
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
+    uiLibrary.rootContainer.transparent = true;
 
     startMenuBackground.bounds = {0, 0, windowWidth, windowHeight};
     uiLibrary.rootContainer.AddChild(&startMenuBackground);
@@ -383,6 +427,7 @@ struct ScoreScreen : public Menu {
     uiLibrary.rootContainer.ClearChildren();
 
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
+    uiLibrary.rootContainer.transparent = true;
 
     highScoreLabel.text = "HIGH SCORES";
     highScoreLabel.bounds = {windowWidth / 2, FONT_SIZE_3 * 2, 0, FONT_SIZE_3};
@@ -456,6 +501,7 @@ struct PauseScreen : Menu {
   Button returnToMainMenuButton, returnToGameButton;
   void createUI(float windowWidth, float windowHeight) override {
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
+    uiLibrary.rootContainer.transparent = true;
 
     pauseScreenLabel.text = "PAUSE SCREEN";
     pauseScreenLabel.bounds = {
@@ -499,6 +545,7 @@ struct GameOverScreen : Menu {
     uiLibrary.rootContainer.ClearChildren();
 
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
+    uiLibrary.rootContainer.transparent = true;
 
     gameOverScreenLabel.text = "GAME OVER";
     gameOverScreenLabel.bounds = {
@@ -557,7 +604,7 @@ struct GameOverScreen : Menu {
   }
 
   void loadBackgroundTexture(Texture tex) override {}
-  
+
   void unloadBackgroundTexture() override {}
 
   void Update() {
@@ -580,12 +627,66 @@ struct GameOverScreen : Menu {
   }
 };
 
+
+struct HPAndScoreGUI : Menu {
+  Label healthLabel, scoreLabel, scoreOutput;
+  Bar hpBar;
+  
+  void createUI(float windowWidth, float windowHeight) override {
+    uiLibrary.rootContainer.bounds = {0, 0, windowWidth, 100};
+    uiLibrary.rootContainer.transparent = false;
+    uiLibrary.rootContainer.containerColor = BLACK;
+
+    healthLabel.text = "HP:";
+    healthLabel.bounds = {
+      100, 25, 0, FONT_SIZE_3};
+    healthLabel.fontSize = FONT_SIZE_3;
+    healthLabel.setLeftAlign();
+    healthLabel.textColor = WHITE;
+
+    uiLibrary.rootContainer.AddChild(&healthLabel);
+
+    hpBar.bounds = {
+      200, 25, 500, FONT_SIZE_3};
+    uiLibrary.rootContainer.AddChild(&hpBar);
+
+    scoreLabel.text = "SCORE:";
+    scoreLabel.bounds = {
+      800, 25, 0, FONT_SIZE_3};
+    scoreLabel.fontSize = FONT_SIZE_3;
+    scoreLabel.setLeftAlign();
+    scoreLabel.textColor = WHITE;
+    uiLibrary.rootContainer.AddChild(&scoreLabel);
+
+    scoreOutput.text = "0";
+    scoreOutput.bounds = {
+      1050, 25, 0, FONT_SIZE_3};
+    scoreOutput.fontSize = FONT_SIZE_3;
+    scoreOutput.setLeftAlign();
+    scoreOutput.textColor = WHITE;
+    uiLibrary.rootContainer.AddChild(&scoreOutput);
+  }
+
+  void loadBackgroundTexture(Texture tex) override {}
+
+  void unloadBackgroundTexture() override {}
+
+  void Update() override { 
+    uiLibrary.Update(); 
+
+    hpBar.UpdateBar(health);
+    scoreOutput.text = std::to_string(newScore);
+  }
+};
+
+
 struct MenuHandler {
   std::vector<Menu*> menuList;
   MainMenu mainMenu;
   ScoreScreen scoreScreen;
   PauseScreen pauseScreen;
   GameOverScreen gameOverScreen;
+  HPAndScoreGUI inGameGUI;
   float menuWindowWidth, menuWindowHeight;
 
   void initialize(float windowWidth, float windowHeight) {
@@ -596,6 +697,7 @@ struct MenuHandler {
     scoreScreen.createUI(windowWidth, windowHeight);
     pauseScreen.createUI(windowWidth, windowHeight);
     gameOverScreen.createUI(windowWidth, windowHeight);
+    inGameGUI.createUI(windowWidth, windowHeight);
 
     gameState = InMainMenu;
 
@@ -603,11 +705,11 @@ struct MenuHandler {
     menuList.push_back(&scoreScreen);
     menuList.push_back(&pauseScreen);
     menuList.push_back(&gameOverScreen);
+    menuList.push_back(&inGameGUI);
   }
 
   void Update() {
-    if (gameState == InGame) return;
-
+    //if (gameState == InGame) return;
     if (scoreUpdate) {
       scoreScreen.createUI(menuWindowWidth, menuWindowHeight);
       scoreUpdate = false;
@@ -617,7 +719,7 @@ struct MenuHandler {
   }
 
   void Draw() {
-    if (gameState == InGame) return;
+    //if (gameState == InGame) return;
     menuList[gameState]->Draw();
   }
 
