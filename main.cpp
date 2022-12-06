@@ -63,7 +63,7 @@ static void spawnEnemies(entt::registry& registry, const int amount, const int s
     mc.type = (rng(50)) ? MELEE : RANGE;
     mc.spawnPosition =
       chooseSpawnPosition(WINDOW_WIDTH, WINDOW_HEIGHT, SPAWN_OFFSET);
-    cc.hitboxRadius = 20.0f;
+    cc.hitboxRadius = 45.0f;
     cc.position = mc.spawnPosition;
     if (mc.type == MELEE) {
       cc.velocity = {
@@ -157,6 +157,8 @@ int main() {
   // TEXTURES
   Texture playerTexture = LoadTexture("./assets/knight.png");
   Texture playerAttackingTexture = LoadTexture("./assets/knightAttack.png");
+  Texture enemyRangedTexture = LoadTexture("./assets/enemyRanged.png");
+  Texture enemyMeleeTexture = LoadTexture("./assets/enemyMelee.png");
   Texture mainMenuBackground = LoadTexture("./assets/Hakenslash.png");
 
 	tick = LoadSound("./assets/tick.wav");
@@ -468,11 +470,32 @@ int main() {
         PlayerComponent* pc = registry.try_get<PlayerComponent>(e);
         if (mc) {
           switch (mc->type) {
+            Rectangle enemyRec;
+            Rectangle enemyWindowRec;
+
             case MELEE:
               color = RED;
+              enemyRec.x = 56;
+              enemyRec.y = 120;
+              enemyRec.width = 430;
+              enemyRec.height = 280;
+              enemyWindowRec.x = cc.position.x;
+              enemyWindowRec.y = cc.position.y;
+              enemyWindowRec.width = 96.75;
+              enemyWindowRec.height = 63;
+              DrawTexturePro(enemyMeleeTexture, enemyRec, enemyWindowRec, {48.375, 31.5}, findRotationAngle(playerCc.position, cc.position) * RAD2DEG, WHITE);
               break;
             case RANGE:
               color = YELLOW;
+              enemyRec.x = 108;
+              enemyRec.y = 128;
+              enemyRec.width = 280;
+              enemyRec.height = 267;
+              enemyWindowRec.x = cc.position.x;
+              enemyWindowRec.y = cc.position.y;
+              enemyWindowRec.width = 100.8;
+              enemyWindowRec.height = 96.48;
+              DrawTexturePro(enemyRangedTexture, enemyRec, enemyWindowRec, {50.4, 48.24}, findRotationAngle(playerCc.position, cc.position) * RAD2DEG, WHITE);
               break;
             case BULLET:
               color = GREEN;
@@ -483,7 +506,10 @@ int main() {
             default:
               color = BLACK;
           }
-          DrawCircleV(cc.position, cc.hitboxRadius, color);
+          if (mc->type == BULLET || mc ->type == FRIENDLY_BULLET){
+            DrawCircleV(cc.position, cc.hitboxRadius, color);
+          }
+          
         }
         if (pc) {
           Rectangle playerRec;  // Texture coords
@@ -535,6 +561,9 @@ int main() {
   
 	UnloadTexture(playerTexture);
 	UnloadTexture(playerAttackingTexture);
+  UnloadTexture(enemyRangedTexture);
+  UnloadTexture(enemyMeleeTexture);
+  UnloadTexture(mainMenuBackground);
   menuHandler.menuList[InMainMenu]->unloadBackgroundTexture();
 
 	CloseAudioDevice();
