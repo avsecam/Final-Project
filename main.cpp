@@ -438,6 +438,8 @@ int main() {
         score = 0;
         requiredEnemyCount = BASE_ENEMY_COUNT;
         playerCc.position = {WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2};
+				timesEnemiesSpawned = 0;
+				timesEnemiesSpedUp = 0;
         gameHasJustStarted = true;
         startWaitTime = 0.0f;
         for (auto mob : registry.view<MobComponent>()) {
