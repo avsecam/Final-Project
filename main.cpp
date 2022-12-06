@@ -157,6 +157,7 @@ int main() {
   health = PLAYER_HEALTH;
 
   // TEXTURES
+  Texture cursor = LoadTexture("./assets/cursorSword.png");
   Texture playerTexture = LoadTexture("./assets/knight.png");
   Texture playerAttackingTexture = LoadTexture("./assets/knightAttack.png");
   Texture enemyRangedTexture = LoadTexture("./assets/enemyRanged.png");
@@ -172,8 +173,10 @@ int main() {
 
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
-
+    HideCursor();
     state = menuHandler.getState();
+
+    
 
     if (state == InGame) {
       if (gameHasJustStarted) {
@@ -276,6 +279,7 @@ int main() {
       // Physics Process
       accumulator += deltaTime;
       while (accumulator >= TIMESTEP) {
+        
       	unigrid.clearCells();
         // Move player character
         playerCc.position = Vector2Add(
@@ -569,10 +573,11 @@ int main() {
     menuHandler.menuList[InMainMenu]->loadBackgroundTexture(mainMenuBackground);
     menuHandler.menuList[InGameOverScreen]->loadBackgroundTexture(gameOverBackground);
     menuHandler.Draw();
-
+    DrawTextureEx(cursor, GetMousePosition(), 0, 0.25, WHITE);
     EndDrawing();
   }
   
+  UnloadTexture(cursor);
 	UnloadTexture(playerTexture);
 	UnloadTexture(playerAttackingTexture);
   UnloadTexture(enemyRangedTexture);
