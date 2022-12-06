@@ -18,7 +18,7 @@ struct meleeWeaponComponent {
   float hitboxRadius;
 };
 
-const float SPAWN_OFFSET(20.0f);
+const float SPAWN_OFFSET(100.0f);
 const float ENEMY_MELEE_VELOCITY_MIN(30.0f);
 const float ENEMY_MELEE_VELOCITY_MAX(100.0f);
 const float ENEMY_RANGE_VELOCITY_MIN(15.0f);

@@ -60,7 +60,7 @@ static void spawnEnemies(entt::registry& registry, const int amount, const int s
     CharacterComponent& cc = registry.emplace<CharacterComponent>(e);
     MobComponent& mc = registry.emplace<MobComponent>(e);
     ScoreOnKillComponent& sokc = registry.emplace<ScoreOnKillComponent>(e);
-    mc.type = (rng(50)) ? MELEE : RANGE;
+    mc.type = (rng(80)) ? MELEE : RANGE;
     mc.spawnPosition =
       chooseSpawnPosition(WINDOW_WIDTH, WINDOW_HEIGHT, SPAWN_OFFSET);
     cc.hitboxRadius = 45.0f;
@@ -286,6 +286,7 @@ int main() {
           playerCc.position,
           Vector2Scale(playerMoveDirection, PLAYER_MOVESPEED * TIMESTEP)
         );
+				playerCc.position = clampToRectangle(playerCc.position, {20.0f, 120.0f, WINDOW_WIDTH - 20.0f, WINDOW_HEIGHT - 20.0f});
 
         // Weapon Hitbox Tracking and Swing Cooldown
         wc.position = Vector2Add(
