@@ -167,14 +167,22 @@ int main() {
   Texture floor = LoadTexture("./assets/Floor.png");
 
 
-
-	tick = LoadSound("./assets/tick.wav");
+  // MUSIC AND SOUND
+  Music gameBgm = LoadMusicStream("./assets/Spook3.mp3");
   Sound swordSwing = LoadSound("./assets/swordSwing.wav");
+  Sound bloodSplatter = LoadSound("./assets/bloodSplatter.wav");
+  tick = LoadSound("./assets/tick.wav");
+
+  PlayMusicStream(gameBgm);
+  SetMusicVolume(gameBgm, 0.25);
 
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
     HideCursor();
     state = menuHandler.getState();
+    
+
+    
 
     
 
@@ -248,6 +256,7 @@ int main() {
                   score += sokc->score;
                 }
                 if (mc->type == MELEE || mc->type == RANGE) {
+                  PlaySoundMulti(bloodSplatter);
                   registry.destroy(e);
                 } else {
                   StraightMovementComponent* smc =
@@ -372,6 +381,7 @@ int main() {
             if (charactersAreColliding(playerCc, cc)) {
               PlayerComponent& pc = registry.get<PlayerComponent>(playerEntity);
               registry.destroy(e);
+              PlaySoundMulti(bloodSplatter);
               pc.hp -= 1;
               health = pc.hp;
               std::cout << health << std::endl;
@@ -430,6 +440,7 @@ int main() {
                         score += aSokc->score;
                       }
                       registry.destroy(eA);
+                      PlaySoundMulti(bloodSplatter);
                     } else {
                       separateCharacters(*aCc, *bCc);
                     }
@@ -470,6 +481,7 @@ int main() {
     }
 
     menuHandler.Update();
+    UpdateMusicStream(gameBgm);
 
     BeginDrawing();
     ClearBackground(WHITE);
@@ -569,7 +581,7 @@ int main() {
       DrawText(std::to_string(score).c_str(), 10, 10, 20, PURPLE);
       newScore = score;
     }
-
+    
     menuHandler.menuList[InMainMenu]->loadBackgroundTexture(mainMenuBackground);
     menuHandler.menuList[InGameOverScreen]->loadBackgroundTexture(gameOverBackground);
     menuHandler.Draw();
@@ -577,7 +589,7 @@ int main() {
     EndDrawing();
   }
   
-  UnloadTexture(cursor);
+  UnloadTexture(cursor);  
 	UnloadTexture(playerTexture);
 	UnloadTexture(playerAttackingTexture);
   UnloadTexture(enemyRangedTexture);
@@ -586,6 +598,8 @@ int main() {
   UnloadTexture(floor);
   UnloadSound(tick);
   UnloadSound(swordSwing);
+  UnloadSound(bloodSplatter);
+  UnloadMusicStream(gameBgm);
   menuHandler.menuList[InMainMenu]->unloadBackgroundTexture();
   menuHandler.menuList[InGameOverScreen]->unloadBackgroundTexture();
 
