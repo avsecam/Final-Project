@@ -165,7 +165,10 @@ int main() {
   Texture gameOverBackground = LoadTexture("./assets/GameOver.png");
   Texture floor = LoadTexture("./assets/Floor.png");
 
+
+
 	tick = LoadSound("./assets/tick.wav");
+  Sound swordSwing = LoadSound("./assets/swordSwing.wav");
 
   while (!WindowShouldClose()) {
     deltaTime = GetFrameTime();
@@ -228,6 +231,7 @@ int main() {
       if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (canSwing) {
           isAttacking = true;
+          PlaySound(swordSwing);
           // Attack collision
           for (auto e : registry.view<CharacterComponent>()) {
             CharacterComponent& cc = registry.get<CharacterComponent>(e);
@@ -575,6 +579,8 @@ int main() {
   UnloadTexture(enemyMeleeTexture);
   UnloadTexture(mainMenuBackground);
   UnloadTexture(floor);
+  UnloadSound(tick);
+  UnloadSound(swordSwing);
   menuHandler.menuList[InMainMenu]->unloadBackgroundTexture();
   menuHandler.menuList[InGameOverScreen]->unloadBackgroundTexture();
 
