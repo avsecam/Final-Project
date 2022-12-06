@@ -540,6 +540,7 @@ struct GameOverScreen : Menu {
   Label gameOverScreenLabel, scoreLabel, setNameLabel;
   Button returnToMainMenuButton, saveScoreButton;
   TextField playerName;
+  BackgroundImage gameOverBackground;
 
   void createUI(float windowWidth, float windowHeight) override {
     uiLibrary.rootContainer.ClearChildren();
@@ -547,12 +548,15 @@ struct GameOverScreen : Menu {
     uiLibrary.rootContainer.bounds = {0, 0, windowWidth, windowHeight};
     uiLibrary.rootContainer.transparent = true;
 
+    gameOverBackground.bounds = {0, 0, windowWidth, windowHeight};
+    uiLibrary.rootContainer.AddChild(&gameOverBackground);
+
     gameOverScreenLabel.text = "GAME OVER";
     gameOverScreenLabel.bounds = {
       windowWidth / 2, FONT_SIZE_3 * 2, 0, FONT_SIZE_3};
     gameOverScreenLabel.fontSize = FONT_SIZE_3;
     gameOverScreenLabel.setCenterAlign();
-    gameOverScreenLabel.textColor = BLACK;
+    gameOverScreenLabel.textColor = WHITE;
 
     uiLibrary.rootContainer.AddChild(&gameOverScreenLabel);
 
@@ -562,7 +566,7 @@ struct GameOverScreen : Menu {
       FONT_SIZE_2};
     scoreLabel.fontSize = FONT_SIZE_2;
     scoreLabel.setCenterAlign();
-    scoreLabel.textColor = BLACK;
+    scoreLabel.textColor = WHITE;
 
     uiLibrary.rootContainer.AddChild(&scoreLabel);
 
@@ -572,7 +576,7 @@ struct GameOverScreen : Menu {
       FONT_SIZE_2};
     setNameLabel.fontSize = FONT_SIZE_2;
     setNameLabel.setRightAlign();
-    setNameLabel.textColor = BLACK;
+    setNameLabel.textColor = WHITE;
 
     uiLibrary.rootContainer.AddChild(&setNameLabel);
 
@@ -580,7 +584,7 @@ struct GameOverScreen : Menu {
       windowWidth / 2 + 20, windowHeight / 2 - FONT_SIZE_3 * float(1.5), 0,
       FONT_SIZE_2};
     playerName.fontSize = FONT_SIZE_2;
-    playerName.textColor = BLACK;
+    playerName.textColor = WHITE;
     playerName.letterCount = 0;
     playerName.isMax = false;
 
@@ -603,7 +607,9 @@ struct GameOverScreen : Menu {
     uiLibrary.rootContainer.AddChild(&returnToMainMenuButton);
   }
 
-  void loadBackgroundTexture(Texture tex) override {}
+  void loadBackgroundTexture(Texture tex) override {
+    gameOverBackground.backgroundImageTexture = tex;
+  }
 
   void unloadBackgroundTexture() override {}
 

@@ -162,6 +162,8 @@ int main() {
   Texture enemyRangedTexture = LoadTexture("./assets/enemyRanged.png");
   Texture enemyMeleeTexture = LoadTexture("./assets/enemyMelee.png");
   Texture mainMenuBackground = LoadTexture("./assets/Hakenslash.png");
+  Texture gameOverBackground = LoadTexture("./assets/GameOver.png");
+  Texture floor = LoadTexture("./assets/Floor.png");
 
 	tick = LoadSound("./assets/tick.wav");
 
@@ -462,9 +464,10 @@ int main() {
     menuHandler.Update();
 
     BeginDrawing();
-    ClearBackground(BROWN);
+    ClearBackground(WHITE);
 
     if (state == InGame || state == InPauseScreen) {
+      DrawTexture(floor, 0, 0, WHITE);
       // Uniform Grid
       // unigrid.draw();
 
@@ -504,7 +507,7 @@ int main() {
               DrawTexturePro(enemyRangedTexture, enemyRec, enemyWindowRec, {50.4, 48.24}, findRotationAngle(playerCc.position, cc.position) * RAD2DEG, WHITE);
               break;
             case BULLET:
-              color = GREEN;
+              color = YELLOW;
               break;
             case FRIENDLY_BULLET:
               color = BLUE;
@@ -560,7 +563,7 @@ int main() {
     }
 
     menuHandler.menuList[InMainMenu]->loadBackgroundTexture(mainMenuBackground);
-
+    menuHandler.menuList[InGameOverScreen]->loadBackgroundTexture(gameOverBackground);
     menuHandler.Draw();
 
     EndDrawing();
@@ -571,7 +574,9 @@ int main() {
   UnloadTexture(enemyRangedTexture);
   UnloadTexture(enemyMeleeTexture);
   UnloadTexture(mainMenuBackground);
+  UnloadTexture(floor);
   menuHandler.menuList[InMainMenu]->unloadBackgroundTexture();
+  menuHandler.menuList[InGameOverScreen]->unloadBackgroundTexture();
 
 	CloseAudioDevice();
 	
