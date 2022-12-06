@@ -28,8 +28,10 @@ const float UNIGRID_CELL_SIZE(60.0f);
 
 const float WAIT_TIME_BEFORE_FIRST_SPAWN(1.0f);
 const int BASE_ENEMY_COUNT(5);
-const int ADDITIONAL_ENEMY_COUNT(2
+const int ADDITIONAL_ENEMY_COUNT(1
 );  // How many more enemies to add after score threshold
+const int ENEMY_SPEEDUP_SPAWN_INTERVAL(2); // Speedup enemies after N times of spawning
+const float ENEMY_SPEEDUP_ADDER(10.0f);
 
 const float PLAYER_MOVESPEED(180.0f);
 
@@ -51,7 +53,7 @@ static bool checkWeaponCollision(
   return (sumOfRadii >= distanceBetweenCenters);
 }
 
-static void spawnEnemies(entt::registry& registry, const int amount) {
+static void spawnEnemies(entt::registry& registry, const int amount, const int speedLevel) {
   for (int i = 0; i < amount; i++) {
     entt::entity e = registry.create();
 
@@ -78,6 +80,7 @@ static void spawnEnemies(entt::registry& registry, const int amount) {
       );
       tc.timeLeft = tc.maxTime;
     }
+		cc.velocity = Vector2AddValue(cc.velocity, speedLevel * ENEMY_SPEEDUP_ADDER);
   }
 }
 
@@ -93,7 +96,13 @@ int main() {
   // VARIABLES FOR GAME
   int score(0);
   int requiredEnemyCount(BASE_ENEMY_COUNT);
+	int timesEnemiesSpawned(0);
+	int timesEnemiesSpedUp(0);
+
   bool isAttacking;
+
+
+
   entt::registry registry;
 
   // Create player
@@ -197,8 +206,15 @@ int main() {
           }
         }
         if (currentEnemyCount <= ceil(requiredEnemyCount / 4.0f)) {
-          spawnEnemies(registry, currentEnemyCount + requiredEnemyCount);
+					timesEnemiesSpawned++;
+
+					if (timesEnemiesSpawned % ENEMY_SPEEDUP_SPAWN_INTERVAL == 0) {
+						timesEnemiesSpedUp++;
+					}
+
+          spawnEnemies(registry, currentEnemyCount + requiredEnemyCount, timesEnemiesSpedUp + 1);
           requiredEnemyCount += ADDITIONAL_ENEMY_COUNT;
+
         }
       }
 
@@ -363,6 +379,7 @@ int main() {
           // Check collision with other mobs
           for (size_t i = 0; i < unigrid.cells.size(); i++) {
             for (size_t j = 0; j < unigrid.cells[i].size(); j++) {
+							if (unigrid.cells[i][j].objects.empty()) continue;
               for (size_t obj1 = 0; obj1 < unigrid.cells[i][j].objects.size();
                    obj1++) {
                 for (size_t obj2 = 0; obj2 < unigrid.cells[i][j].objects.size();
@@ -439,7 +456,7 @@ int main() {
 
     if (state == InGame || state == InPauseScreen) {
       // Uniform Grid
-      unigrid.draw();
+      // unigrid.draw();
 
       // Entities
       for (auto e : registry.view<CharacterComponent>()) {
